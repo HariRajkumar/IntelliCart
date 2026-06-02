@@ -3,6 +3,7 @@ from beanie import init_beanie
 
 from app.core.config import settings
 from app.models.user_model import User
+from app.models.product_model import Product
 
 
 class Database:
@@ -17,7 +18,7 @@ async def connect_to_mongo():
 
     await init_beanie(
         database=db.client[settings.DATABASE_NAME],
-        document_models=[User]
+        document_models=[User,Product]
     )
 
     print("Connected to MongoDB")

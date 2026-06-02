@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.api.test_routes import router as test_router
 from app.api.auth_routes import router as auth_router
 from app.api.user_routes import router as user_router
+from app.api.product_routes import router as product_router
 from app.core.config import settings
 from app.db.database import connect_to_mongo, close_mongo_connection
 
@@ -41,11 +42,16 @@ app.include_router(
 )
 
 app.include_router(
+    product_router,
+    prefix="/api/v1/products",
+    tags=["Products"]
+)
+
+app.include_router(
     test_router,
     prefix="/api/v1/test",
     tags=["Test"]
 )
-
 
 @app.get("/")
 async def root():
