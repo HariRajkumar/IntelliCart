@@ -4,7 +4,8 @@ from app.repositories.product_repository import (
     ProductRepository
 )
 from app.schemas.product_schema import (
-    ProductCreate
+    ProductCreate,
+    ProductUpdate
 )
 
 
@@ -35,16 +36,7 @@ class ProductService:
         )
 
         return [
-            {
-                "id": str(product.id),
-                "name": product.name,
-                "description": product.description,
-                "price": product.price,
-                "stock": product.stock,
-                "category": product.category,
-                "images": product.images,
-                "is_active": product.is_active
-            }
+            ProductService.serialize_product(product)
             for product in products
         ]
 
@@ -59,11 +51,88 @@ class ProductService:
             )
         )
 
+        if not product or not product.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        return ProductService.serialize_product(product)
+
+    @staticmethod
+    async def update_product(
+        product_id: str,
+        update_data: ProductUpdate
+    ):
+
+        product = await (
+            ProductRepository.get_product_by_id(
+                product_id
+            )
+        )
+
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Product not found"
             )
+
+        updated_product = await (
+            ProductRepository.update_product(
+                product,
+                update_data.dict(exclude_unset=True)
+            )
+        )
+
+        return ProductService.serialize_product(
+            updated_product
+        )
+
+    @staticmethod
+    async def delete_product(
+        product_id: str
+    ):
+
+        product = await (
+            ProductRepository.get_product_by_id(
+                product_id
+            )
+        )
+
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        await (
+            ProductRepository.soft_delete_product(
+                product
+            )
+        )
+
+        return {
+            "message": "Product deleted successfully"
+        }
+
+    @staticmethod
+    async def search_products(
+        query: str
+    ):
+
+        products = await (
+            ProductRepository.search_products(
+                query
+            )
+        )
+
+        return [
+            ProductService.serialize_product(product)
+            for product in products
+        ]
+
+    @staticmethod
+    def serialize_product(product):
 
         return {
             "id": str(product.id),
