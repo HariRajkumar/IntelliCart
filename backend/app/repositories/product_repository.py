@@ -17,12 +17,36 @@ class ProductRepository:
         return product
 
     @staticmethod
-    async def get_all_products():
+    async def get_all_products(
+        skip: int = 0,
+        limit: int = 10,
+        category: str | None = None,
+        min_price: float | None = None,
+        max_price: float | None = None
+    ):
+
+        filters = {
+            "is_active": True
+        }
+
+        if category:
+            filters["category"] = category
+
+        if min_price is not None or max_price is not None:
+
+            filters["price"] = {}
+
+            if min_price is not None:
+                filters["price"]["$gte"] = min_price
+
+            if max_price is not None:
+                filters["price"]["$lte"] = max_price
 
         return await (
-            Product.find(
-                Product.is_active == True
-            ).to_list()
+            Product.find(filters)
+            .skip(skip)
+            .limit(limit)
+            .to_list()
         )
 
     @staticmethod

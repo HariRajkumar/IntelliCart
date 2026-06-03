@@ -30,10 +30,22 @@ async def create_product(
 
 
 @router.get("/")
-async def get_products():
+async def get_products(
+    page: int = 1,
+    limit: int = 10,
+    category: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None
+):
 
     return await (
-        ProductService.get_all_products()
+        ProductService.get_all_products(
+            page=page,
+            limit=limit,
+            category=category,
+            min_price=min_price,
+            max_price=max_price
+        )
     )
 
 

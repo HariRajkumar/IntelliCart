@@ -29,10 +29,24 @@ class ProductService:
         }
 
     @staticmethod
-    async def get_all_products():
+    async def get_all_products(
+        page: int = 1,
+        limit: int = 10,
+        category: str | None = None,
+        min_price: float | None = None,
+        max_price: float | None = None
+    ):
+
+        skip = (page - 1) * limit
 
         products = await (
-            ProductRepository.get_all_products()
+            ProductRepository.get_all_products(
+                skip=skip,
+                limit=limit,
+                category=category,
+                min_price=min_price,
+                max_price=max_price
+            )
         )
 
         return [
