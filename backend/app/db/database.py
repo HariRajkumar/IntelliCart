@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.models.user_model import User
 from app.models.product_model import Product
 from app.models.category_model import Category
+from app.models.cart_model import Cart
 
 
 class Database:
@@ -22,7 +23,8 @@ async def connect_to_mongo():
         document_models=[
             User,
             Product,
-            Category
+            Category,
+            Cart
         ]
     )
 

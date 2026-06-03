@@ -7,9 +7,8 @@ from app.api.test_routes import router as test_router
 from app.api.auth_routes import router as auth_router
 from app.api.user_routes import router as user_router
 from app.api.product_routes import router as product_router
-from app.api.category_routes import (
-    router as category_router
-)
+from app.api.category_routes import router as category_router
+from app.api.cart_routes import router as cart_router
 from app.core.config import settings
 from app.db.database import connect_to_mongo, close_mongo_connection
 
@@ -61,6 +60,12 @@ app.include_router(
     category_router,
     prefix="/api/v1/categories",
     tags=["Categories"]
+)
+
+app.include_router(
+    cart_router,
+    prefix="/api/v1/cart",
+    tags=["Cart"]
 )
 
 app.include_router(
