@@ -136,3 +136,145 @@ class CartService:
             ],
             "total_price": cart.total_price
         }
+    
+    @staticmethod
+    async def remove_from_cart(
+        user_id: str,
+        product_id: str
+    ):
+
+        cart = await (
+            CartRepository.get_cart_by_user_id(
+                user_id
+            )
+        )
+
+        if not cart:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cart not found"
+            )
+
+        cart.items = [
+            item
+            for item in cart.items
+            if item.product_id != product_id
+        ]
+
+        cart.total_price = sum(
+            item.price * item.quantity
+            for item in cart.items
+        )
+
+        updated_cart = await (
+            CartRepository.save_cart(cart)
+        )
+
+        return CartService.serialize_cart(
+            updated_cart
+        )
+    
+    @staticmethod
+    async def update_cart_item(
+        user_id: str,
+        request
+    ):
+
+        cart = await (
+            CartRepository.get_cart_by_user_id(
+                user_id
+            )
+        )
+
+        if not cart:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Cart not found"
+            )
+
+        item = next(
+            (
+                item
+                for item in cart.items
+                if item.product_id == request.product_id
+            ),
+            None
+        )
+
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found in cart"
+            )
+
+        product = await (
+            ProductRepository.get_product_by_id(
+                request.product_id
+            )
+        )
+
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        if request.quantity > product.stock:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Insufficient stock"
+            )
+
+        if request.quantity <= 0:
+
+            cart.items = [
+                cart_item
+                for cart_item in cart.items
+                if cart_item.product_id != request.product_id
+            ]
+
+        else:
+
+            item.quantity = request.quantity
+
+        cart.total_price = sum(
+            item.price * item.quantity
+            for item in cart.items
+        )
+
+        updated_cart = await (
+            CartRepository.save_cart(cart)
+        )
+
+        return CartService.serialize_cart(
+            updated_cart
+        )
+    
+    @staticmethod
+    async def clear_cart(
+        user_id: str
+    ):
+
+        cart = await (
+            CartRepository.get_cart_by_user_id(
+                user_id
+            )
+        )
+
+        if not cart:
+            return {
+                "message": "Cart already empty"
+            }
+
+        cart.items = []
+
+        cart.total_price = 0
+
+        updated_cart = await (
+            CartRepository.save_cart(cart)
+        )
+
+        return {
+            "message": "Cart cleared"
+        }
+    

@@ -31,3 +31,10 @@ class CartRepository:
         await cart.save()
 
         return cart
+    
+    @staticmethod
+    async def delete_cart(
+        cart: Cart
+    ):
+
+        await cart.delete()
