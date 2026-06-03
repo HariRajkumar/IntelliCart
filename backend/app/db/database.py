@@ -6,6 +6,7 @@ from app.models.user_model import User
 from app.models.product_model import Product
 from app.models.category_model import Category
 from app.models.cart_model import Cart
+from app.models.order_model import Order
 
 
 class Database:
@@ -24,7 +25,8 @@ async def connect_to_mongo():
             User,
             Product,
             Category,
-            Cart
+            Cart,
+            Order
         ]
     )
 

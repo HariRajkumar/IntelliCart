@@ -120,3 +120,15 @@ class ProductRepository:
         await product.save()
 
         return product
+    
+    @staticmethod
+    async def reduce_stock(
+        product: Product,
+        quantity: int
+    ):
+
+        product.stock -= quantity
+
+        await product.save()
+
+        return product
