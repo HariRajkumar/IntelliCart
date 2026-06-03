@@ -8,6 +8,9 @@ from app.models.user_model import User
 from app.services.order_service import (
     OrderService
 )
+from app.schemas.order_schema import (
+    UpdateOrderStatusRequest
+)
 
 
 router = APIRouter()
@@ -44,4 +47,18 @@ async def get_all_orders(
 
     return await (
         OrderService.get_all_orders()
+    )
+
+@router.put("/{order_id}/status")
+async def update_order_status(
+    order_id: str,
+    request: UpdateOrderStatusRequest,
+    current_user: User = Depends(admin_required)
+):
+
+    return await (
+        OrderService.update_order_status(
+            order_id,
+            request
+        )
     )

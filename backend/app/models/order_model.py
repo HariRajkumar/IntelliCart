@@ -4,6 +4,8 @@ from typing import List
 from beanie import Document
 from pydantic import BaseModel, Field
 
+from app.core.order_status import OrderStatus
+
 
 class OrderItem(BaseModel):
 
@@ -26,7 +28,7 @@ class Order(Document):
 
     total_price: float
 
-    status: str = "pending"
+    status: OrderStatus = OrderStatus.PENDING
 
     created_at: datetime = Field(
         default_factory=datetime.utcnow

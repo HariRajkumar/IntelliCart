@@ -1,6 +1,11 @@
 from fastapi import HTTPException, status
 
 from app.models.order_model import OrderItem
+from app.core.order_status import OrderStatus
+
+from app.schemas.order_schema import (
+    UpdateOrderStatusRequest
+)
 from app.repositories.cart_repository import (
     CartRepository
 )
@@ -143,3 +148,55 @@ class OrderService:
             "status": order.status,
             "created_at": order.created_at
         }
+    
+    @staticmethod
+    async def update_order_status(
+        order_id: str,
+        request: UpdateOrderStatusRequest
+    ):
+
+        order = await (
+            OrderRepository.get_order_by_id(
+                order_id
+            )
+        )
+
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
+
+        old_status = order.status
+
+        order.status = request.status
+
+        if (
+            request.status == OrderStatus.CANCELLED
+            and old_status != OrderStatus.CANCELLED
+        ):
+
+            for item in order.items:
+
+                product = await (
+                    ProductRepository.get_product_by_id(
+                        item.product_id
+                    )
+                )
+
+                if product:
+
+                    await (
+                        ProductRepository.restore_stock(
+                            product,
+                            item.quantity
+                        )
+                    )
+
+        updated_order = await (
+            OrderRepository.save_order(order)
+        )
+
+        return OrderService.serialize_order(
+            updated_order
+        )

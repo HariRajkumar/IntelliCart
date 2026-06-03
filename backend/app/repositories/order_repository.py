@@ -29,3 +29,19 @@ class OrderRepository:
     async def get_all_orders():
 
         return await Order.find_all().to_list()
+    
+    @staticmethod
+    async def get_order_by_id(
+        order_id: str
+    ):
+
+        return await Order.get(order_id)
+    
+    @staticmethod
+    async def save_order(
+        order: Order
+    ):
+
+        await order.save()
+
+        return order
