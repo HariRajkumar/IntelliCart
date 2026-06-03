@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi import File, UploadFile
 
 from app.dependencies.auth_dependencies import (
     admin_required
@@ -95,5 +96,19 @@ async def delete_product(
     return await (
         ProductService.delete_product(
             product_id
+        )
+    )
+
+@router.post("/{product_id}/upload-image")
+async def upload_product_image(
+    product_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(admin_required)
+):
+
+    return await (
+        ProductService.upload_product_image(
+            product_id,
+            file
         )
     )

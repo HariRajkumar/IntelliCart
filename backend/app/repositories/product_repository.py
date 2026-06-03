@@ -108,3 +108,15 @@ class ProductRepository:
                 }
             ).to_list()
         )
+    
+    @staticmethod
+    async def add_product_image(
+        product: Product,
+        image_url: str
+    ):
+
+        product.images.append(image_url)
+
+        await product.save()
+
+        return product

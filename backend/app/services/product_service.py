@@ -1,5 +1,9 @@
 from fastapi import HTTPException, status
+from fastapi import UploadFile
 
+from app.utils.file_upload import (
+    save_product_image
+)
 from app.repositories.product_repository import (
     ProductRepository
 )
@@ -7,6 +11,7 @@ from app.schemas.product_schema import (
     ProductCreate,
     ProductUpdate
 )
+
 
 
 class ProductService:
@@ -158,3 +163,36 @@ class ProductService:
             "images": product.images,
             "is_active": product.is_active
         }
+    
+    @staticmethod
+    async def upload_product_image(
+        product_id: str,
+        file: UploadFile
+    ):
+
+        product = await (
+            ProductRepository.get_product_by_id(
+                product_id
+            )
+        )
+
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        image_url = await (
+            save_product_image(file)
+        )
+
+        updated_product = await (
+            ProductRepository.add_product_image(
+                product,
+                image_url
+            )
+        )
+
+        return ProductService.serialize_product(
+            updated_product
+        )
