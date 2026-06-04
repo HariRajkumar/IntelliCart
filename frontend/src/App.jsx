@@ -6,6 +6,10 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Home from "./pages/Home";
 import Products from "./pages/Products";
+import ProductDetail from "./pages/ProductDetail";
+import Cart from "./pages/Cart";
+
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
@@ -27,11 +31,26 @@ function App() {
           path="/register"
           element={<Register />}
         />
-        
+
         <Route
           path="/products"
           element={<Products />}
         />
+
+        <Route
+          path="/products/:id"
+          element={<ProductDetail />}
+        />
+
+        <Route
+          path="/cart"
+          element={
+            <ProtectedRoute>
+              <Cart />
+            </ProtectedRoute>
+          }
+        />
+        
       </Routes>
     </>
   );
