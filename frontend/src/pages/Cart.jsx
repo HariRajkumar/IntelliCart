@@ -7,6 +7,9 @@ import {
   getCart,
 } from "../services/cartService";
 
+import { checkout } from "../services/orderService";
+import { useNavigate } from "react-router-dom";
+
 const Cart = () => {
   const [cart, setCart] =
     useState(null);
@@ -24,6 +27,26 @@ const Cart = () => {
 
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const navigate = useNavigate();
+
+  const handleCheckout = async () => {
+    try {
+        await checkout();
+
+        alert(
+        "Order placed successfully"
+        );
+
+        navigate("/orders");
+
+    } catch (err) {
+        alert(
+        err.response?.data?.detail ||
+        "Checkout failed"
+        );
     }
   };
 
@@ -85,6 +108,21 @@ const Cart = () => {
           cart.total_price
         }
       </h2>
+
+      <button
+        onClick={handleCheckout}
+        className="
+            mt-6
+            bg-black
+            text-white
+            px-6
+            py-3
+            rounded
+        "
+        >
+        Checkout
+      </button>
+
     </div>
   );
 };
