@@ -17,7 +17,7 @@ db = Database()
 
 
 async def connect_to_mongo():
-    db.client = AsyncIOMotorClient(settings.MONGO_URL)
+    db.client = AsyncIOMotorClient(settings.MONGODB_URL)
 
     await init_beanie(
         database=db.client[settings.DATABASE_NAME],

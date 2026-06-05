@@ -5,10 +5,14 @@ class Settings(BaseSettings):
     APP_NAME: str = "IntelliCart API"
     APP_VERSION: str = "1.0.0"
 
-    MONGO_URL: str
+    MONGODB_URL: str
     DATABASE_NAME: str
 
-    JWT_SECRET: str
+    JWT_SECRET_KEY: str
+
+    JWT_ALGORITHM: str
+
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
 
     model_config = SettingsConfigDict(
         env_file=".env",

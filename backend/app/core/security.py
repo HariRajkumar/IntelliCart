@@ -12,9 +12,9 @@ pwd_context = CryptContext(
     deprecated="auto"
 )
 
-ALGORITHM = "HS256"
+#ALGORITHM = "HS256"
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+#ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 
 def hash_password(password: str) -> str:
@@ -39,15 +39,15 @@ def create_access_token(
 
     expire = datetime.now(timezone.utc) + (
         expires_delta
-        or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
 
     to_encode.update({"exp": expire})
 
     encoded_jwt = jwt.encode(
         to_encode,
-        settings.JWT_SECRET,
-        algorithm=ALGORITHM
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.JWT_ALGORITHM
     )
 
     return encoded_jwt
@@ -56,8 +56,8 @@ def decode_access_token(token: str):
     try:
         payload = jwt.decode(
             token,
-            settings.JWT_SECRET,
-            algorithms=[ALGORITHM]
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM]
         )
 
         return payload

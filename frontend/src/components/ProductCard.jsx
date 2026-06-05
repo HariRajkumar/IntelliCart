@@ -22,7 +22,7 @@ const ProductCard = ({
         <img
             src={
             product.images?.[0]
-                ? `http://localhost:8000${product.images[0]}`
+                ? `${import.meta.env.VITE_BACKEND_URL}${product.images[0]}`
                 : "https://placehold.co/400x300"
             }
             alt={product.name}
