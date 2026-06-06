@@ -50,7 +50,7 @@ async def get_products(
     )
 
 
-@router.get("/search/")
+@router.get("/search")
 async def search_products(
     q: str = Query(...)
 ):

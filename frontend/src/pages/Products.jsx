@@ -1,32 +1,49 @@
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
 import ProductCard from "../components/ProductCard";
 
-import {
-  getProducts,
-} from "../services/productService";
+// import { getProducts } from "../services/productService";
+
+import { getProducts, searchProducts } from "../services/productService";
 
 const Products = () => {
-  const [products, setProducts] =
-    useState([]);
+  const [products, setProducts] = useState([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
+
+  const [search, setSearch] = useState("");
+
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     loadProducts();
   }, []);
 
-  const loadProducts = async () => {
+  const handleSearch = async () => {
+    if (!search.trim()) {
+      loadProducts();
+
+      return;
+    }
+
+    setSearchLoading(true);
+
     try {
-      const data =
-        await getProducts();
+      const data = await searchProducts(search);
 
       setProducts(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
 
+  const loadProducts = async () => {
+    try {
+      const data = await getProducts();
+
+      setProducts(data);
     } catch (error) {
       console.error(error);
     } finally {
@@ -58,7 +75,6 @@ const Products = () => {
 
   return (
     <div className="p-6">
-
       <h1
         className="
         text-3xl
@@ -71,6 +87,61 @@ const Products = () => {
 
       <div
         className="
+        flex
+        gap-3
+        mb-6
+      "
+      >
+        <input
+          type="text"
+          placeholder="Search products..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="
+          border
+          p-3
+          rounded
+          flex-1
+        "
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleSearch();
+            }
+          }}
+        />
+
+        <button
+          onClick={handleSearch}
+          disabled={searchLoading}
+          className="
+          bg-black
+          text-white
+          px-5
+          rounded
+          disabled:opacity-50
+        "
+        >
+          {searchLoading ? "Searching..." : "Search"}
+        </button>
+
+        <button
+          onClick={() => {
+            setSearch("");
+
+            loadProducts();
+          }}
+          className="
+          border
+          px-4
+          rounded
+        "
+        >
+          Clear
+        </button>
+      </div>
+
+      <div
+        className="
         grid
         grid-cols-1
         md:grid-cols-2
@@ -79,10 +150,7 @@ const Products = () => {
       "
       >
         {products.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-          />
+          <ProductCard key={product.id} product={product} />
         ))}
       </div>
     </div>
