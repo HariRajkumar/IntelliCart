@@ -36,8 +36,22 @@ const Products = () => {
 
   if (loading) {
     return (
-      <div className="p-6">
-        Loading products...
+      <div
+        className="
+        flex
+        justify-center
+        items-center
+        min-h-[60vh]
+      "
+      >
+        <p
+          className="
+          text-xl
+          font-semibold
+        "
+        >
+          Loading Products...
+        </p>
       </div>
     );
   }

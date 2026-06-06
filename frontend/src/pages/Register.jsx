@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import { registerUser } from "../services/authService";
 
 const Register = () => {
@@ -8,25 +9,27 @@ const Register = () => {
     password: "",
   });
 
+  const [loading, setLoading] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    setLoading(true);
 
     try {
       await registerUser(formData);
 
-      alert("Registration successful");
+      toast.success("Registration successful");
 
       setFormData({
         full_name: "",
         email: "",
         password: "",
       });
-
     } catch (err) {
-      alert(
-        err.response?.data?.detail ||
-        "Registration failed"
-      );
+      toast.error(err.response?.data?.detail || "Registration failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -36,9 +39,7 @@ const Register = () => {
         onSubmit={handleSubmit}
         className="bg-white p-8 rounded shadow w-full max-w-md"
       >
-        <h1 className="text-2xl font-bold mb-4">
-          Register
-        </h1>
+        <h1 className="text-2xl font-bold mb-4">Register</h1>
 
         <input
           className="w-full border p-3 mb-3"
@@ -79,9 +80,18 @@ const Register = () => {
         />
 
         <button
-          className="w-full bg-black text-white p-3 rounded"
+          disabled={loading}
+          className="
+          w-full
+          bg-black
+          text-white
+          p-3
+          rounded
+          disabled:opacity-50
+          disabled:cursor-not-allowed
+          "
         >
-          Register
+          {loading ? "Creating Account..." : "Register"}
         </button>
       </form>
     </div>

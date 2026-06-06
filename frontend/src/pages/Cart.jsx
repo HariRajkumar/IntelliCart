@@ -1,18 +1,14 @@
-import {
-  useEffect,
-  useState,
-} from "react";
-
-import {
-  getCart,
-} from "../services/cartService";
+import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import { getCart } from "../services/cartService";
 
 import { checkout } from "../services/orderService";
 import { useNavigate } from "react-router-dom";
 
 const Cart = () => {
-  const [cart, setCart] =
-    useState(null);
+  const [cart, setCart] = useState(null);
+
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   useEffect(() => {
     loadCart();
@@ -20,11 +16,9 @@ const Cart = () => {
 
   const loadCart = async () => {
     try {
-      const data =
-        await getCart();
+      const data = await getCart();
 
       setCart(data);
-
     } catch (err) {
       console.error(err);
     }
@@ -33,25 +27,27 @@ const Cart = () => {
   const navigate = useNavigate();
 
   const handleCheckout = async () => {
+    setCheckoutLoading(true);
+
     try {
-        await checkout();
+      await checkout();
 
-        alert(
-        "Order placed successfully"
-        );
+      setCart({
+        items: [],
+        total_price: 0,
+      });
 
-        navigate("/orders");
+      toast.success("Order placed successfully");
 
+      navigate("/orders");
     } catch (err) {
-        alert(
-        err.response?.data?.detail ||
-        "Checkout failed"
-        );
+      toast.error(err.response?.data?.detail || "Checkout failed");
+    } finally {
+      setCheckoutLoading(false);
     }
   };
 
-  if (!cart)
-    return <div>Loading...</div>;
+  if (!cart) return <div>Loading...</div>;
 
   return (
     <div className="p-6">
@@ -65,35 +61,24 @@ const Cart = () => {
         Shopping Cart
       </h1>
 
-      {cart.items?.map(
-        (item) => (
-          <div
-            key={
-              item.product_id
-            }
-            className="
+      {cart.items?.map((item) => (
+        <div
+          key={item.product_id}
+          className="
             border-b
             py-4
           "
-          >
-            <h2>
-              {item.name}
-            </h2>
+        >
+          <h2>{item.name}</h2>
 
-            <p>
-              Qty:
-              {
-                item.quantity
-              }
-            </p>
+          <p>
+            Qty:
+            {item.quantity}
+          </p>
 
-            <p>
-              ₹
-              {item.price}
-            </p>
-          </div>
-        )
-      )}
+          <p>₹{item.price}</p>
+        </div>
+      ))}
 
       <h2
         className="
@@ -102,27 +87,25 @@ const Cart = () => {
         mt-6
       "
       >
-        Total:
-        ₹
-        {
-          cart.total_price
-        }
+        Total: ₹{cart.total_price}
       </h2>
 
       <button
         onClick={handleCheckout}
+        disabled={checkoutLoading}
         className="
-            mt-6
-            bg-black
-            text-white
-            px-6
-            py-3
-            rounded
-        "
-        >
-        Checkout
+        mt-6
+        bg-black
+        text-white
+        px-6
+        py-3
+        rounded
+        disabled:opacity-50
+        disabled:cursor-not-allowed
+      "
+      >
+        {checkoutLoading ? "Processing..." : "Checkout"}
       </button>
-
     </div>
   );
 };

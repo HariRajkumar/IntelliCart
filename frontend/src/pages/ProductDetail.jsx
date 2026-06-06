@@ -1,31 +1,23 @@
-import {
-  useEffect,
-  useState,
-} from "react";
+import { useEffect, useState } from "react";
 
-import {
-  useParams,
-} from "react-router-dom";
+import { useParams } from "react-router-dom";
 
-import {
-  getProductById,
-} from "../services/productService";
+import toast from "react-hot-toast";
 
-import {
-  addToCart,
-} from "../services/cartService";
+import { getProductById } from "../services/productService";
+
+import { addToCart } from "../services/cartService";
 
 const ProductDetail = () => {
   const { id } = useParams();
 
-  const [product, setProduct] =
-    useState(null);
+  const [product, setProduct] = useState(null);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [quantity, setQuantity] =
-    useState(1);
+  const [quantity, setQuantity] = useState(1);
+
+  const [addingToCart, setAddingToCart] = useState(false);
 
   useEffect(() => {
     loadProduct();
@@ -33,11 +25,9 @@ const ProductDetail = () => {
 
   const loadProduct = async () => {
     try {
-      const data =
-        await getProductById(id);
+      const data = await getProductById(id);
 
       setProduct(data);
-
     } catch (err) {
       console.error(err);
     } finally {
@@ -45,33 +35,23 @@ const ProductDetail = () => {
     }
   };
 
-  const handleAddToCart =
-    async () => {
-      try {
-        await addToCart(
-          product.id,
-          quantity
-        );
+  const handleAddToCart = async () => {
+    setAddingToCart(true);
 
-        alert(
-          "Added to cart"
-        );
+    try {
+      await addToCart(product.id, quantity);
 
-      } catch (err) {
-        alert(
-          err.response?.data?.detail ||
-          "Failed"
-        );
-      }
-    };
+      toast.success("Added to cart");
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed");
+    } finally {
+      setAddingToCart(false);
+    }
+  };
 
-  if (loading)
-    return <div>Loading...</div>;
+  if (loading) return <div>Loading...</div>;
 
-  if (!product)
-    return (
-      <div>Product not found</div>
-    );
+  if (!product) return <div>Product not found</div>;
 
   return (
     <div
@@ -139,13 +119,7 @@ const ProductDetail = () => {
           min="1"
           max={product.stock}
           value={quantity}
-          onChange={(e) =>
-            setQuantity(
-              Number(
-                e.target.value
-              )
-            )
-          }
+          onChange={(e) => setQuantity(Number(e.target.value))}
           className="
           border
           p-2
@@ -157,18 +131,19 @@ const ProductDetail = () => {
         <br />
 
         <button
-          onClick={
-            handleAddToCart
-          }
+          onClick={handleAddToCart}
+          disabled={addingToCart}
           className="
           bg-black
           text-white
           px-6
           py-3
           rounded
+          disabled:opacity-50
+          disabled:cursor-not-allowed
         "
         >
-          Add To Cart
+          {addingToCart ? "Adding..." : "Add To Cart"}
         </button>
       </div>
     </div>

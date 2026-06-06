@@ -1,38 +1,35 @@
-import {
-  useContext,
-  useState,
-} from "react";
+import { useContext, useState } from "react";
+
+import toast from "react-hot-toast";
 
 import AuthContext from "../context/AuthContext";
 
-import {
-  loginUser,
-} from "../services/authService";
+import { loginUser } from "../services/authService";
 
 const Login = () => {
-  const { login } =
-    useContext(AuthContext);
+  const { login } = useContext(AuthContext);
 
-  const [email, setEmail] =
-    useState("");
+  const [email, setEmail] = useState("");
 
-  const [password, setPassword] =
-    useState("");
+  const [password, setPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    setLoading(true);
+
     try {
-      const data = await loginUser(
-        email,
-        password
-      );
+      const data = await loginUser(email, password);
 
       login(data.access_token);
 
-      alert("Login successful");
+      toast.success("Login successful");
     } catch (error) {
-      alert("Login failed");
+      toast.error("Login failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -78,9 +75,7 @@ const Login = () => {
           rounded
         "
           value={email}
-          onChange={(e) =>
-            setEmail(e.target.value)
-          }
+          onChange={(e) => setEmail(e.target.value)}
         />
 
         <input
@@ -94,23 +89,22 @@ const Login = () => {
           rounded
         "
           value={password}
-          onChange={(e) =>
-            setPassword(
-              e.target.value
-            )
-          }
+          onChange={(e) => setPassword(e.target.value)}
         />
 
         <button
+          disabled={loading}
           className="
           w-full
           bg-black
           text-white
           p-3
           rounded
-        "
+          disabled:opacity-50
+          disabled:cursor-not-allowed
+          "
         >
-          Login
+          {loading ? "Logging in..." : "Login"}
         </button>
       </form>
     </div>
