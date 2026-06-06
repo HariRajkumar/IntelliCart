@@ -3,6 +3,7 @@ import toast from "react-hot-toast";
 import { getCart } from "../services/cartService";
 
 import { checkout } from "../services/orderService";
+import { getErrorMessage } from "../utils/errorHandler";
 import { useNavigate } from "react-router-dom";
 
 const Cart = () => {
@@ -41,7 +42,7 @@ const Cart = () => {
 
       navigate("/orders");
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Checkout failed");
+      toast.error(getErrorMessage(err));
     } finally {
       setCheckoutLoading(false);
     }

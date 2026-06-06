@@ -8,6 +8,8 @@ import { getProductById } from "../services/productService";
 
 import { addToCart } from "../services/cartService";
 
+import { getErrorMessage } from "../utils/errorHandler";
+
 const ProductDetail = () => {
   const { id } = useParams();
 
@@ -43,7 +45,7 @@ const ProductDetail = () => {
 
       toast.success("Added to cart");
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Failed");
+      toast.error(getErrorMessage(err));
     } finally {
       setAddingToCart(false);
     }

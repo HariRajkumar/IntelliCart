@@ -1,6 +1,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
 import { registerUser } from "../services/authService";
+import { getErrorMessage } from "../utils/errorHandler";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -27,7 +28,7 @@ const Register = () => {
         password: "",
       });
     } catch (err) {
-      toast.error(err.response?.data?.detail || "Registration failed");
+      toast.error(getErrorMessage(err));
     } finally {
       setLoading(false);
     }

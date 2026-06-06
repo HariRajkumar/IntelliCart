@@ -6,6 +6,8 @@ import AuthContext from "../context/AuthContext";
 
 import { loginUser } from "../services/authService";
 
+import { getErrorMessage } from "../utils/errorHandler";
+
 const Login = () => {
   const { login } = useContext(AuthContext);
 
@@ -27,7 +29,7 @@ const Login = () => {
 
       toast.success("Login successful");
     } catch (error) {
-      toast.error("Login failed");
+      toast.error(getErrorMessage(error));
     } finally {
       setLoading(false);
     }
