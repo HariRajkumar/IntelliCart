@@ -21,6 +21,7 @@ class ProductRepository:
         skip: int = 0,
         limit: int = 10,
         category: str | None = None,
+        search: str | None = None,
         min_price: float | None = None,
         max_price: float | None = None
     ):
@@ -31,6 +32,12 @@ class ProductRepository:
 
         if category:
             filters["category"] = category
+
+        if search:
+            filters["name"] = {
+                "$regex": search,
+                "$options": "i"
+            }
 
         if min_price is not None or max_price is not None:
 

@@ -2,46 +2,53 @@ import { useEffect, useState } from "react";
 
 import ProductCard from "../components/ProductCard";
 
-// import { getProducts } from "../services/productService";
+import { getProducts } from "../services/productService";
 
-import { getProducts, searchProducts } from "../services/productService";
+import { getCategories } from "../services/categoryService";
 
 const Products = () => {
   const [products, setProducts] = useState([]);
 
   const [loading, setLoading] = useState(true);
 
+  const [searchInput, setSearchInput] = useState("");
+
   const [search, setSearch] = useState("");
 
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [categories, setCategories] = useState([]);
+
+  const [selectedCategory, setSelectedCategory] = useState("");
+
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
   useEffect(() => {
     loadProducts();
-  }, []);
+  }, [search, selectedCategory, page]);
 
-  const handleSearch = async () => {
-    if (!search.trim()) {
-      loadProducts();
-
-      return;
-    }
-
-    setSearchLoading(true);
-
+  const loadCategories = async () => {
     try {
-      const data = await searchProducts(search);
+      const data = await getCategories();
 
-      setProducts(data);
+      setCategories(data);
     } catch (error) {
       console.error(error);
-    } finally {
-      setSearchLoading(false);
     }
   };
 
   const loadProducts = async () => {
     try {
-      const data = await getProducts();
+      setLoading(true);
+
+      const data = await getProducts({
+        search,
+        category: selectedCategory,
+        page,
+        limit: 8,
+      });
 
       setProducts(data);
     } catch (error) {
@@ -51,21 +58,26 @@ const Products = () => {
     }
   };
 
+  const handleSearch = () => {
+    setPage(1);
+    setSearch(searchInput);
+  };
+
   if (loading) {
     return (
       <div
         className="
-        flex
-        justify-center
-        items-center
-        min-h-[60vh]
-      "
+          flex
+          justify-center
+          items-center
+          min-h-[60vh]
+        "
       >
         <p
           className="
-          text-xl
-          font-semibold
-        "
+            text-xl
+            font-semibold
+          "
         >
           Loading Products...
         </p>
@@ -77,80 +89,114 @@ const Products = () => {
     <div className="p-6">
       <h1
         className="
-        text-3xl
-        font-bold
-        mb-6
-      "
+          text-3xl
+          font-bold
+          mb-6
+        "
       >
         Products
       </h1>
 
       <div
         className="
-        flex
-        gap-3
-        mb-6
-      "
+          flex
+          gap-3
+          mb-6
+          flex-wrap
+        "
       >
         <input
           type="text"
           placeholder="Search products..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="
-          border
-          p-3
-          rounded
-          flex-1
-        "
+          value={searchInput}
+          onChange={(e) =>
+            setSearchInput(e.target.value)
+          }
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               handleSearch();
             }
           }}
+          className="
+            border
+            p-3
+            rounded
+            flex-1
+            min-w-[250px]
+          "
         />
 
         <button
           onClick={handleSearch}
-          disabled={searchLoading}
           className="
-          bg-black
-          text-white
-          px-5
-          rounded
-          disabled:opacity-50
-        "
+            bg-black
+            text-white
+            px-5
+            rounded
+          "
         >
-          {searchLoading ? "Searching..." : "Search"}
+          Search
         </button>
 
         <button
           onClick={() => {
+            setSearchInput("");
             setSearch("");
-
-            loadProducts();
+            setSelectedCategory("");
+            setPage(1);
           }}
           className="
-          border
-          px-4
-          rounded
-        "
+            border
+            px-4
+            rounded
+          "
         >
           Clear
         </button>
+
+        <select
+          value={selectedCategory}
+          onChange={(e) => {
+            setPage(1);
+            setSelectedCategory(
+              e.target.value
+            );
+          }}
+          className="
+            border
+            p-3
+            rounded
+          "
+        >
+          <option value="">
+            All Categories
+          </option>
+
+          {categories.map((category) => (
+            <option
+              key={category.id}
+              value={category.name}
+            >
+              {category.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div
         className="
-        grid
-        grid-cols-1
-        md:grid-cols-2
-        lg:grid-cols-4
-        gap-6
-      "
+          grid
+          grid-cols-1
+          md:grid-cols-2
+          lg:grid-cols-4
+          gap-6
+        "
       >
         {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <ProductCard
+            key={product.id}
+            product={product}
+          />
         ))}
       </div>
     </div>

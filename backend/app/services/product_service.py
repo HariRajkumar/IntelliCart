@@ -38,6 +38,7 @@ class ProductService:
         page: int = 1,
         limit: int = 10,
         category: str | None = None,
+        search: str | None = None,
         min_price: float | None = None,
         max_price: float | None = None
     ):
@@ -49,6 +50,7 @@ class ProductService:
                 skip=skip,
                 limit=limit,
                 category=category,
+                search=search,
                 min_price=min_price,
                 max_price=max_price
             )

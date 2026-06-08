@@ -35,6 +35,7 @@ async def get_products(
     page: int = 1,
     limit: int = 10,
     category: str | None = None,
+    search: str | None = None,
     min_price: float | None = None,
     max_price: float | None = None
 ):
@@ -44,6 +45,7 @@ async def get_products(
             page=page,
             limit=limit,
             category=category,
+            search=search,
             min_price=min_price,
             max_price=max_price
         )
