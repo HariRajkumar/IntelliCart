@@ -56,10 +56,27 @@ class ProductService:
             )
         )
 
-        return [
-            ProductService.serialize_product(product)
-            for product in products
-        ]
+        total = await (
+            ProductRepository.count_products(
+                category=category,
+                search=search,
+                min_price=min_price,
+                max_price=max_price
+            )
+        )
+
+        return {
+            "items": [
+                ProductService.serialize_product(product)
+                for product in products
+            ],
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "total_pages": (
+                total + limit - 1
+            ) // limit
+        }
 
     @staticmethod
     async def get_product_by_id(

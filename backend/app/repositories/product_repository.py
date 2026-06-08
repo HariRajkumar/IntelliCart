@@ -151,3 +151,38 @@ class ProductRepository:
         await product.save()
 
         return product
+    
+    @staticmethod
+    async def count_products(
+        category: str | None = None,
+        search: str | None = None,
+        min_price: float | None = None,
+        max_price: float | None = None
+    ):
+
+        filters = {
+            "is_active": True
+        }
+
+        if category:
+            filters["category"] = category
+
+        if search:
+            filters["name"] = {
+                "$regex": search,
+                "$options": "i"
+            }
+
+        if min_price is not None or max_price is not None:
+
+            filters["price"] = {}
+
+            if min_price is not None:
+                filters["price"]["$gte"] = min_price
+
+            if max_price is not None:
+                filters["price"]["$lte"] = max_price
+
+        return await Product.find(
+            filters
+        ).count()

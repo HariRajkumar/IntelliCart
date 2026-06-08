@@ -21,6 +21,8 @@ const Products = () => {
 
   const [page, setPage] = useState(1);
 
+  const [totalPages, setTotalPages] = useState(1);
+
   useEffect(() => {
     loadCategories();
   }, []);
@@ -50,7 +52,10 @@ const Products = () => {
         limit: 8,
       });
 
-      setProducts(data);
+      setProducts(data.items);
+      setTotalPages(
+        data.total_pages
+      );
     } catch (error) {
       console.error(error);
     } finally {
@@ -109,9 +114,7 @@ const Products = () => {
           type="text"
           placeholder="Search products..."
           value={searchInput}
-          onChange={(e) =>
-            setSearchInput(e.target.value)
-          }
+          onChange={(e) => setSearchInput(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               handleSearch();
@@ -158,9 +161,7 @@ const Products = () => {
           value={selectedCategory}
           onChange={(e) => {
             setPage(1);
-            setSelectedCategory(
-              e.target.value
-            );
+            setSelectedCategory(e.target.value);
           }}
           className="
             border
@@ -168,15 +169,10 @@ const Products = () => {
             rounded
           "
         >
-          <option value="">
-            All Categories
-          </option>
+          <option value="">All Categories</option>
 
           {categories.map((category) => (
-            <option
-              key={category.id}
-              value={category.name}
-            >
+            <option key={category.id} value={category.name}>
               {category.name}
             </option>
           ))}
@@ -193,11 +189,56 @@ const Products = () => {
         "
       >
         {products.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-          />
+          <ProductCard key={product.id} product={product} />
         ))}
+      </div>
+
+      <div
+        className="
+        flex
+        justify-center
+        items-center
+        gap-4
+        mt-8
+      "
+      >
+        <button
+          onClick={() =>
+            setPage(page - 1)
+          }
+          disabled={page === 1}
+          className="
+          border
+          px-4
+          py-2
+          rounded
+          disabled:opacity-50
+        "
+        >
+          Previous
+        </button>
+
+        <span>
+          Page {page} of {totalPages}
+        </span>
+
+        <button
+          onClick={() =>
+            setPage(page + 1)
+          }
+          disabled={
+            page >= totalPages
+          }
+          className="
+          border
+          px-4
+          py-2
+          rounded
+          disabled:opacity-50
+        "
+        >
+          Next
+        </button>
       </div>
     </div>
   );
