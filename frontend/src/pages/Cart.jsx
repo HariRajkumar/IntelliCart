@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { getCart } from "../services/cartService";
+// import { getCart } from "../services/cartService";
+import { getCart, updateCartItem } from "../services/cartService";
 
 import { checkout } from "../services/orderService";
 import { getErrorMessage } from "../utils/errorHandler";
@@ -14,6 +15,17 @@ const Cart = () => {
   useEffect(() => {
     loadCart();
   }, []);
+
+  const handleQuantityChange = async (productId, quantity) => {
+    try {
+      await updateCartItem(productId, quantity);
+
+      toast.success("Cart updated");
+      loadCart();
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const loadCart = async () => {
     try {
@@ -72,10 +84,31 @@ const Cart = () => {
         >
           <h2>{item.name}</h2>
 
-          <p>
-            Qty:
-            {item.quantity}
-          </p>
+          <div
+            className="
+            flex
+            items-center
+            gap-2
+            mt-2
+          "
+          >
+            <span>Qty:</span>
+
+            <input
+              type="number"
+              min="1"
+              defaultValue={item.quantity}
+              onBlur={(e) =>
+                handleQuantityChange(item.product_id, Number(e.target.value))
+              }
+              className="
+              border
+              w-20
+              p-1
+              rounded
+            "
+            />
+          </div>
 
           <p>₹{item.price}</p>
         </div>

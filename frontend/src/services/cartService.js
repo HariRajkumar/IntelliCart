@@ -22,3 +22,22 @@ export const getCart = async () => {
 
   return response.data;
 };
+
+export const updateCartItem =
+  async (
+    productId,
+    quantity
+  ) => {
+
+    const response =
+      await api.put(
+        "/cart/update",
+        {
+          product_id:
+            productId,
+          quantity
+        }
+      );
+
+    return response.data;
+  };
