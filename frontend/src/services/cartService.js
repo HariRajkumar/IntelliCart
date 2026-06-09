@@ -41,3 +41,14 @@ export const updateCartItem =
 
     return response.data;
   };
+
+export const removeFromCart =
+  async (productId) => {
+
+    const response =
+      await api.delete(
+        `/cart/remove/${productId}`
+      );
+
+    return response.data;
+  };

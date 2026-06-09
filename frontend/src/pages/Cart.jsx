@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 // import { getCart } from "../services/cartService";
-import { getCart, updateCartItem } from "../services/cartService";
+import {
+  getCart,
+  updateCartItem,
+  removeFromCart,
+} from "../services/cartService";
 
 import { checkout } from "../services/orderService";
 import { getErrorMessage } from "../utils/errorHandler";
@@ -23,6 +27,20 @@ const Cart = () => {
       toast.success("Cart updated");
       loadCart();
     } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleRemove = async (productId) => {
+    try {
+      await removeFromCart(productId);
+
+      toast.success("Item removed");
+
+      loadCart();
+    } catch (error) {
+      toast.error("Failed to remove item");
+
       console.error(error);
     }
   };
@@ -74,45 +92,74 @@ const Cart = () => {
         Shopping Cart
       </h1>
 
-      {cart.items?.map((item) => (
+      {cart.items?.length === 0 ? (
         <div
-          key={item.product_id}
           className="
-            border-b
-            py-4
-          "
+          text-center
+          py-10
+        "
         >
-          <h2>{item.name}</h2>
-
-          <div
-            className="
-            flex
-            items-center
-            gap-2
-            mt-2
-          "
-          >
-            <span>Qty:</span>
-
-            <input
-              type="number"
-              min="1"
-              defaultValue={item.quantity}
-              onBlur={(e) =>
-                handleQuantityChange(item.product_id, Number(e.target.value))
-              }
-              className="
-              border
-              w-20
-              p-1
-              rounded
-            "
-            />
-          </div>
-
-          <p>₹{item.price}</p>
+          Your cart is empty.
         </div>
-      ))}
+      ) : (
+        cart.items.map((item) => (
+          // existing item UI
+          <div
+            key={item.product_id}
+            className="
+                border-b
+                py-4
+              "
+          >
+            <h2>{item.name}</h2>
+
+            <div
+              className="
+                flex
+                items-center
+                gap-2
+                mt-2
+              "
+            >
+              <span>Qty:</span>
+
+              <input
+                type="number"
+                min="1"
+                defaultValue={item.quantity}
+                onBlur={(e) =>
+                  handleQuantityChange(item.product_id, Number(e.target.value))
+                }
+                className="
+                  border
+                  w-20
+                  p-1
+                  rounded
+                "
+              />
+            </div>
+
+            <p>₹{item.price}</p>
+
+            <button
+              onClick={() => handleRemove(item.product_id)}
+              className="
+                mt-3
+                bg-red-500
+                text-white
+                px-3
+                py-1
+                rounded
+              "
+            >
+              Remove
+            </button>
+          </div>
+        ))
+      )}
+      {/* {cart.items?.map((item) => (
+        
+      ))} */}
 
       <h2
         className="
@@ -124,22 +171,22 @@ const Cart = () => {
         Total: ₹{cart.total_price}
       </h2>
 
-      <button
-        onClick={handleCheckout}
-        disabled={checkoutLoading}
-        className="
-        mt-6
-        bg-black
-        text-white
-        px-6
-        py-3
-        rounded
-        disabled:opacity-50
-        disabled:cursor-not-allowed
-      "
-      >
-        {checkoutLoading ? "Processing..." : "Checkout"}
-      </button>
+      {cart.items?.length > 0 && (
+        <button
+          onClick={handleCheckout}
+          disabled={checkoutLoading}
+          className="
+          mt-6
+          bg-black
+          text-white
+          px-6
+          py-3
+          rounded
+        "
+        >
+          {checkoutLoading ? "Processing..." : "Checkout"}
+        </button>
+      )}
     </div>
   );
 };
