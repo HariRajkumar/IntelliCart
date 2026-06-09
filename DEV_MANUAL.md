@@ -6,13 +6,14 @@ This document describes the backend and frontend architecture, explains each maj
 - **Purpose:** Full-stack e-commerce sample (IntelliCart) with FastAPI backend and React + Vite frontend.
 - **Backend base URL:** `http://localhost:8000/api/v1`
 - **Frontend dev URL:** `http://localhost:5173` (Vite default)
+- **Containerized dev:** `docker compose up --build` starts backend, frontend, and MongoDB.
 
 ## **Backend — Structure & Key Files**
-- **Entrypoint:** [backend/app/main.py](backend/app/main.py) — FastAPI app, CORS, mounts `/uploads`, registers routers.
-- **Config:** [backend/app/core/config.py](backend/app/core/config.py) — settings via `.env` (`MONGO_URL`, `DATABASE_NAME`, `JWT_SECRET`).
-- **Security helpers:** [backend/app/core/security.py](backend/app/core/security.py) — password hashing, JWT create/verify, expiry.
+- **Entrypoint:** [backend/app/main.py](backend/app/main.py) — FastAPI app, lifespan hooks, CORS, mounts `/uploads`, registers routers.
+- **Config:** [backend/app/core/config.py](backend/app/core/config.py) — settings via `.env` (`MONGODB_URL`, `DATABASE_NAME`, `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`).
+- **Security helpers:** [backend/app/core/security.py](backend/app/core/security.py) — password hashing, JWT creation/verification, expiry.
 - **Enums:** [backend/app/core/roles.py](backend/app/core/roles.py), [backend/app/core/order_status.py](backend/app/core/order_status.py).
-- **DB connection:** [backend/app/db/database.py](backend/app/db/database.py) — Motor + Beanie, registers document models.
+- **DB connection:** [backend/app/db/database.py](backend/app/db/database.py) — Motor + Beanie, connects to MongoDB, registers document models.
 - **Models (documents):** [backend/app/models](backend/app/models) — `User`, `Product`, `Category`, `Cart`, `Order` definitions.
 - **Schemas (Pydantic):** [backend/app/schemas](backend/app/schemas) — request/response validation models.
 - **Repositories:** [backend/app/repositories](backend/app/repositories) — DB access helpers per domain.
@@ -24,7 +25,7 @@ This document describes the backend and frontend architecture, explains each maj
 
 Authentication & Authorization
 - Register: `POST /auth/register` — validates payload, prevents duplicate emails, hashes password, creates `User`.
-- Login: `POST /auth/login` — OAuth2 form, verifies password, returns JWT (`access_token`) with 60-minute expiry. See [backend/app/services/auth_service.py](backend/app/services/auth_service.py) and [backend/app/api/auth_routes.py](backend/app/api/auth_routes.py).
+- Login: `POST /auth/login` — OAuth2 form, verifies password, returns JWT (`access_token`) with configured expiry. See [backend/app/services/auth_service.py](backend/app/services/auth_service.py) and [backend/app/api/auth_routes.py](backend/app/api/auth_routes.py).
 - Token validation: `backend/app/dependencies/auth_dependencies.py` decodes JWT and loads `User`. Admin checks use `admin_required`.
 
 Products
@@ -51,11 +52,11 @@ Error handling
 - Services raise `HTTPException` for client errors (400/401/403/404). Security decode returns None for invalid tokens; dependencies convert to 401.
 
 ## **Frontend — Structure & Key Files**
-- **Axios instance:** [frontend/src/api/axios.js](frontend/src/api/axios.js) — baseURL `http://localhost:8000/api/v1`, attaches `Authorization` header from `localStorage.token`.
+- **Axios instance:** [frontend/src/api/axios.js](frontend/src/api/axios.js) — reads `VITE_API_URL` and attaches `Authorization` header from `localStorage.token`.
 - **Auth context:** [frontend/src/context/AuthContext.jsx](frontend/src/context/AuthContext.jsx) — provides `login(token)`, `logout()`, and `isAuthenticated` state.
 - **Pages:** [frontend/src/pages](frontend/src/pages) — `Home`, `Products`, `ProductDetail`, `Cart`, `Orders`, `Login`, `Register`.
 - **Components:** [frontend/src/components](frontend/src/components) — `ProductCard`, `Navbar`, `ProtectedRoute`.
-- **Services (frontend API wrappers):** [frontend/src/services](frontend/src/services) — `authService.js`, `productService.js`, `cartService.js`, `orderService.js`.
+- **Services (frontend API wrappers):** [frontend/src/services](frontend/src/services) — `authService.js`, `productService.js`, `categoryService.js`, `cartService.js`, `orderService.js`.
 
 ## **Frontend — Flows and Edge Cases (detailed)**
 
@@ -91,9 +92,13 @@ UX & developer notes
 
 ## **Run & dev notes**
 - Backend env file (create `.env`) must include:
-  - `MONGO_URL` — MongoDB connection string
+  - `MONGODB_URL` — MongoDB connection string
   - `DATABASE_NAME` — database name
-  - `JWT_SECRET` — secret for signing tokens
+  - `JWT_SECRET_KEY` — secret for signing JWTs
+  - `JWT_ALGORITHM` — JWT signature algorithm (e.g. `HS256`)
+  - `ACCESS_TOKEN_EXPIRE_MINUTES` — token expiration window in minutes
+- Frontend env file (create `frontend/.env` or root `.env`) should include:
+  - `VITE_API_URL=http://localhost:8000/api/v1`
 - Run backend (recommended):
 
 ```powershell
@@ -113,6 +118,12 @@ uvicorn app.main:app --reload --port 8000
 cd frontend
 npm install
 npm run dev
+```
+
+- Run the full stack with Docker Compose:
+
+```bash
+docker compose up --build
 ```
 
 ## **Important files quick links**
