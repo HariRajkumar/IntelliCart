@@ -18,6 +18,32 @@ const Orders = () => {
     loadOrders();
   }, []);
 
+  const getStatusClass = (status) => {
+    const normalized = status?.toLowerCase() ?? "";
+
+    if (normalized.includes("completed") || normalized.includes("delivered")) {
+      return "bg-success text-white";
+    }
+
+    if (
+      normalized.includes("pending") ||
+      normalized.includes("processing") ||
+      normalized.includes("shipped")
+    ) {
+      return "bg-warning text-slate-900";
+    }
+
+    if (
+      normalized.includes("cancel") ||
+      normalized.includes("fail") ||
+      normalized.includes("returned")
+    ) {
+      return "bg-error text-white";
+    }
+
+    return "bg-secondary text-white";
+  };
+
   const loadOrders = async () => {
     try {
       const data =
@@ -51,7 +77,11 @@ const Orders = () => {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <span className="text-text">Order: {order.id}</span>
 
-            <span className="font-semibold text-primary">{order.status}</span>
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-semibold ${getStatusClass(order.status)}`}
+            >
+              {order.status}
+            </span>
           </div>
 
           <div className="space-y-2 text-text">
