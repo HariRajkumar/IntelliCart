@@ -14,7 +14,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
-    <>
+    <main className="min-h-screen bg-background text-text">
       <Navbar />
 
       <Routes>
@@ -62,7 +62,7 @@ function App() {
         />
 
       </Routes>
-    </>
+    </main>
   );
 }
 

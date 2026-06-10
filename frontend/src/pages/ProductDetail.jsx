@@ -4,6 +4,9 @@ import { useParams } from "react-router-dom";
 
 import toast from "react-hot-toast";
 
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
+
 import { getProductById } from "../services/productService";
 
 import { addToCart } from "../services/cartService";
@@ -56,16 +59,7 @@ const ProductDetail = () => {
   if (!product) return <div>Product not found</div>;
 
   return (
-    <div
-      className="
-      max-w-6xl
-      mx-auto
-      p-6
-      grid
-      md:grid-cols-2
-      gap-8
-    "
-    >
+    <div className="max-w-6xl mx-auto p-6 grid md:grid-cols-2 gap-8">
       <div>
         <img
           src={
@@ -74,79 +68,35 @@ const ProductDetail = () => {
               : "https://placehold.co/800x600"
           }
           alt={product.name}
-          className="
-          w-full
-          rounded-lg
-        "
+          className="w-full rounded-3xl"
         />
       </div>
 
-      <div>
-        <h1
-          className="
-          text-4xl
-          font-bold
-          mb-4
-        "
-        >
-          {product.name}
-        </h1>
+      <div className="space-y-6">
+        <h1 className="text-4xl font-bold text-text">{product.name}</h1>
 
-        <p
-          className="
-          text-gray-600
-          mb-4
-        "
-        >
-          {product.description}
-        </p>
+        <p className="text-muted mb-4">{product.description}</p>
 
-        <p
-          className="
-          text-2xl
-          font-bold
-          mb-4
-        "
-        >
-          ₹{product.price}
-        </p>
+        <p className="text-2xl font-bold text-text mb-4">₹{product.price}</p>
 
-        <p className="mb-4">
-          Stock:
-          {product.stock}
-        </p>
+        <p className="text-text mb-4">Stock: {product.stock}</p>
 
-        <input
+        <Input
           type="number"
           min="1"
           max={product.stock}
           value={quantity}
           onChange={(e) => setQuantity(Number(e.target.value))}
-          className="
-          border
-          p-2
-          w-24
-          mb-4
-        "
+          className="w-24 mb-4"
         />
 
-        <br />
-
-        <button
+        <Button
           onClick={handleAddToCart}
           disabled={addingToCart}
-          className="
-          bg-black
-          text-white
-          px-6
-          py-3
-          rounded
-          disabled:opacity-50
-          disabled:cursor-not-allowed
-        "
+          className="px-6 py-3"
         >
           {addingToCart ? "Adding..." : "Add To Cart"}
-        </button>
+        </Button>
       </div>
     </div>
   );

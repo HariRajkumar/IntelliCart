@@ -37,79 +37,33 @@ const Orders = () => {
 
   return (
     <div className="p-6">
-
-      <h1
-        className="
-          text-3xl
-          font-bold
-          mb-6
-        "
-      >
-        My Orders
-      </h1>
+      <h1 className="text-3xl font-bold mb-6 text-text">My Orders</h1>
 
       {orders.length === 0 && (
-        <p>No orders found.</p>
+        <p className="text-muted">No orders found.</p>
       )}
 
       {orders.map((order) => (
         <div
           key={order.id}
-          className="
-            border
-            rounded-lg
-            p-4
-            mb-4
-          "
+          className="rounded-3xl border border-border bg-surface p-4 mb-4 shadow-sm"
         >
-          <div
-            className="
-              flex
-              justify-between
-              mb-3
-            "
-          >
-            <span>
-              Order:
-              {" "}
-              {order.id}
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <span className="text-text">Order: {order.id}</span>
 
-            <span
-              className="
-                font-semibold
-              "
-            >
-              {order.status}
-            </span>
+            <span className="font-semibold text-primary">{order.status}</span>
           </div>
 
-          {order.items.map(
-            (item) => (
-              <div
-                key={
-                  item.product_id
-                }
-              >
-                {item.name}
-                {" "}
-                x
-                {" "}
-                {item.quantity}
+          <div className="space-y-2 text-text">
+            {order.items.map((item) => (
+              <div key={item.product_id}>
+                {item.name} x {item.quantity}
               </div>
-            )
-          )}
+            ))}
+          </div>
 
-          <div
-            className="
-              mt-3
-              font-bold
-            "
-          >
-            Total:
-            {" "}
-            ₹
-            {order.total_price}
+          <div className="mt-3 font-bold text-text">
+            Total: ₹{order.total_price}
           </div>
         </div>
       ))}

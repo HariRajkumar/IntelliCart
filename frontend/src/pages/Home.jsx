@@ -9,6 +9,7 @@ const Home = () => {
       items-center
       justify-center
       min-h-[80vh]
+      px-6
     "
     >
       <h1
@@ -16,6 +17,7 @@ const Home = () => {
         text-5xl
         font-bold
         mb-4
+        text-text
       "
       >
         IntelliCart
@@ -24,7 +26,7 @@ const Home = () => {
       <p
         className="
         text-xl
-        text-gray-600
+        text-muted
       "
       >
         AI-Powered E-Commerce Platform
@@ -34,11 +36,16 @@ const Home = () => {
         to="/products"
         className="
         mt-8
-        bg-black
-        text-white
+        inline-flex
+        items-center
+        justify-center
+        rounded-lg
+        bg-primary
         px-6
         py-3
-        rounded
+        text-white
+        transition
+        hover:bg-primary-hover
       "
       >
         Shop Now

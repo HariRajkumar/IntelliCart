@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
 import ProductCard from "../components/ProductCard";
 
 import { getProducts } from "../services/productService";
@@ -92,25 +94,10 @@ const Products = () => {
 
   return (
     <div className="p-6">
-      <h1
-        className="
-          text-3xl
-          font-bold
-          mb-6
-        "
-      >
-        Products
-      </h1>
+      <h1 className="text-3xl font-bold mb-6 text-text">Products</h1>
 
-      <div
-        className="
-          flex
-          gap-3
-          mb-6
-          flex-wrap
-        "
-      >
-        <input
+      <div className="flex flex-wrap gap-3 mb-6">
+        <Input
           type="text"
           placeholder="Search products..."
           value={searchInput}
@@ -120,42 +107,25 @@ const Products = () => {
               handleSearch();
             }
           }}
-          className="
-            border
-            p-3
-            rounded
-            flex-1
-            min-w-[250px]
-          "
+          className="flex-1 min-w-[250px]"
         />
 
-        <button
-          onClick={handleSearch}
-          className="
-            bg-black
-            text-white
-            px-5
-            rounded
-          "
-        >
+        <Button onClick={handleSearch} className="px-5">
           Search
-        </button>
+        </Button>
 
-        <button
+        <Button
+          variant="secondary"
           onClick={() => {
             setSearchInput("");
             setSearch("");
             setSelectedCategory("");
             setPage(1);
           }}
-          className="
-            border
-            px-4
-            rounded
-          "
+          className="px-4"
         >
           Clear
-        </button>
+        </Button>
 
         <select
           value={selectedCategory}
@@ -163,11 +133,7 @@ const Products = () => {
             setPage(1);
             setSelectedCategory(e.target.value);
           }}
-          className="
-            border
-            p-3
-            rounded
-          "
+          className="rounded-lg border border-border bg-surface p-3 text-text shadow-sm"
         >
           <option value="">All Categories</option>
 
@@ -179,66 +145,34 @@ const Products = () => {
         </select>
       </div>
 
-      <div
-        className="
-          grid
-          grid-cols-1
-          md:grid-cols-2
-          lg:grid-cols-4
-          gap-6
-        "
-      >
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
 
-      <div
-        className="
-        flex
-        justify-center
-        items-center
-        gap-4
-        mt-8
-      "
-      >
-        <button
-          onClick={() =>
-            setPage(page - 1)
-          }
+      <div className="flex justify-center items-center gap-4 mt-8">
+        <Button
+          variant="secondary"
+          onClick={() => setPage(page - 1)}
           disabled={page === 1}
-          className="
-          border
-          px-4
-          py-2
-          rounded
-          disabled:opacity-50
-        "
+          className="px-4 py-2"
         >
           Previous
-        </button>
+        </Button>
 
-        <span>
+        <span className="text-text">
           Page {page} of {totalPages}
         </span>
 
-        <button
-          onClick={() =>
-            setPage(page + 1)
-          }
-          disabled={
-            page >= totalPages
-          }
-          className="
-          border
-          px-4
-          py-2
-          rounded
-          disabled:opacity-50
-        "
+        <Button
+          variant="secondary"
+          onClick={() => setPage(page + 1)}
+          disabled={page >= totalPages}
+          className="px-4 py-2"
         >
           Next
-        </button>
+        </Button>
       </div>
     </div>
   );

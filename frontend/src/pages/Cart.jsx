@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
 // import { getCart } from "../services/cartService";
 import {
   getCart,
@@ -82,110 +84,59 @@ const Cart = () => {
 
   return (
     <div className="p-6">
-      <h1
-        className="
-        text-3xl
-        font-bold
-        mb-6
-      "
-      >
-        Shopping Cart
-      </h1>
+      <h1 className="text-3xl font-bold mb-6 text-text">Shopping Cart</h1>
 
       {cart.items?.length === 0 ? (
-        <div
-          className="
-          text-center
-          py-10
-        "
-        >
+        <div className="text-center py-10 text-muted">
           Your cart is empty.
         </div>
       ) : (
         cart.items.map((item) => (
-          // existing item UI
           <div
             key={item.product_id}
-            className="
-                border-b
-                py-4
-              "
+            className="border-b border-border py-4"
           >
-            <h2>{item.name}</h2>
+            <h2 className="text-lg font-semibold text-text">{item.name}</h2>
 
-            <div
-              className="
-                flex
-                items-center
-                gap-2
-                mt-2
-              "
-            >
-              <span>Qty:</span>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-muted">Qty:</span>
 
-              <input
+              <Input
                 type="number"
                 min="1"
                 defaultValue={item.quantity}
                 onBlur={(e) =>
                   handleQuantityChange(item.product_id, Number(e.target.value))
                 }
-                className="
-                  border
-                  w-20
-                  p-1
-                  rounded
-                "
+                className="w-24 p-2"
               />
             </div>
 
-            <p>₹{item.price}</p>
+            <p className="mt-3 text-text">₹{item.price}</p>
 
-            <button
+            <Button
+              variant="error"
               onClick={() => handleRemove(item.product_id)}
-              className="
-                mt-3
-                bg-red-500
-                text-white
-                px-3
-                py-1
-                rounded
-              "
+              className="mt-3"
             >
               Remove
-            </button>
+            </Button>
           </div>
         ))
       )}
-      {/* {cart.items?.map((item) => (
-        
-      ))} */}
 
-      <h2
-        className="
-        text-2xl
-        font-bold
-        mt-6
-      "
-      >
+      <h2 className="text-2xl font-bold mt-6 text-text">
         Total: ₹{cart.total_price}
       </h2>
 
       {cart.items?.length > 0 && (
-        <button
+        <Button
           onClick={handleCheckout}
           disabled={checkoutLoading}
-          className="
-          mt-6
-          bg-black
-          text-white
-          px-6
-          py-3
-          rounded
-        "
+          className="mt-6 px-6 py-3"
         >
           {checkoutLoading ? "Processing..." : "Checkout"}
-        </button>
+        </Button>
       )}
     </div>
   );

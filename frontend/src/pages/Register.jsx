@@ -1,5 +1,7 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
 import { registerUser } from "../services/authService";
 import { getErrorMessage } from "../utils/errorHandler";
 
@@ -35,15 +37,15 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-8 rounded shadow w-full max-w-md"
+        className="bg-surface p-8 rounded-3xl shadow w-full max-w-md"
       >
-        <h1 className="text-2xl font-bold mb-4">Register</h1>
+        <h1 className="text-2xl font-bold mb-6 text-text">Register</h1>
 
-        <input
-          className="w-full border p-3 mb-3"
+        <Input
+          className="mb-4"
           placeholder="Full Name"
           value={formData.full_name}
           onChange={(e) =>
@@ -54,8 +56,8 @@ const Register = () => {
           }
         />
 
-        <input
-          className="w-full border p-3 mb-3"
+        <Input
+          className="mb-4"
           placeholder="Email"
           type="email"
           value={formData.email}
@@ -67,8 +69,8 @@ const Register = () => {
           }
         />
 
-        <input
-          className="w-full border p-3 mb-3"
+        <Input
+          className="mb-4"
           placeholder="Password"
           type="password"
           value={formData.password}
@@ -80,20 +82,13 @@ const Register = () => {
           }
         />
 
-        <button
+        <Button
+          type="submit"
           disabled={loading}
-          className="
-          w-full
-          bg-black
-          text-white
-          p-3
-          rounded
-          disabled:opacity-50
-          disabled:cursor-not-allowed
-          "
+          className="w-full"
         >
           {loading ? "Creating Account..." : "Register"}
-        </button>
+        </Button>
       </form>
     </div>
   );

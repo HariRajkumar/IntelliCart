@@ -3,6 +3,8 @@ import { useContext, useState } from "react";
 import toast from "react-hot-toast";
 
 import AuthContext from "../context/AuthContext";
+import Button from "../components/ui/Button";
+import Input from "../components/ui/Input";
 
 import { loginUser } from "../services/authService";
 
@@ -36,78 +38,36 @@ const Login = () => {
   };
 
   return (
-    <div
-      className="
-      min-h-screen
-      flex
-      items-center
-      justify-center
-      bg-gray-100
-    "
-    >
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <form
         onSubmit={handleSubmit}
-        className="
-        bg-white
-        p-8
-        rounded-lg
-        shadow-md
-        w-full
-        max-w-md
-      "
+        className="bg-surface p-8 rounded-3xl shadow-md w-full max-w-md"
       >
-        <h1
-          className="
-          text-2xl
-          font-bold
-          mb-6
-        "
-        >
-          Login
-        </h1>
+        <h1 className="text-2xl font-bold mb-6 text-text">Login</h1>
 
-        <input
+        <Input
           type="email"
           placeholder="Email"
-          className="
-          w-full
-          border
-          p-3
-          mb-4
-          rounded
-        "
+          className="mb-4"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
 
-        <input
+        <Input
           type="password"
           placeholder="Password"
-          className="
-          w-full
-          border
-          p-3
-          mb-4
-          rounded
-        "
+          className="mb-4"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
 
-        <button
+        <Button
+          type="submit"
           disabled={loading}
-          className="
-          w-full
-          bg-black
-          text-white
-          p-3
-          rounded
-          disabled:opacity-50
-          disabled:cursor-not-allowed
-          "
+          className="w-full"
         >
           {loading ? "Logging in..." : "Login"}
-        </button>
+        </Button>
       </form>
     </div>
   );
