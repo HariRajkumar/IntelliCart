@@ -1,4 +1,5 @@
 import { useContext, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import toast from "react-hot-toast";
 
@@ -11,6 +12,7 @@ import { loginUser } from "../services/authService";
 import { getErrorMessage } from "../utils/errorHandler";
 
 const Login = () => {
+  const navigate = useNavigate();
   const { login } = useContext(AuthContext);
 
   const [email, setEmail] = useState("");
@@ -30,6 +32,8 @@ const Login = () => {
       login(data.access_token);
 
       toast.success("Login successful");
+
+      navigate("/");
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {

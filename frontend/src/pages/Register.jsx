@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
@@ -6,6 +7,8 @@ import { registerUser } from "../services/authService";
 import { getErrorMessage } from "../utils/errorHandler";
 
 const Register = () => {
+  const navigate = useNavigate();
+
   const [formData, setFormData] = useState({
     full_name: "",
     email: "",
@@ -29,6 +32,8 @@ const Register = () => {
         email: "",
         password: "",
       });
+
+      navigate("/login");
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
