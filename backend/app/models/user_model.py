@@ -18,6 +18,12 @@ class User(Document):
 
     is_active: bool = True
 
+    is_verified: bool = False
+
+    otp: Optional[str] = None
+
+    otp_expiry: Optional[datetime] = None
+
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     updated_at: datetime = Field(default_factory=datetime.utcnow)

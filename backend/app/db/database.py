@@ -7,6 +7,7 @@ from app.models.product_model import Product
 from app.models.category_model import Category
 from app.models.cart_model import Cart
 from app.models.order_model import Order
+from app.models.otp_model import OTP
 
 
 class Database:
@@ -26,7 +27,8 @@ async def connect_to_mongo():
             Product,
             Category,
             Cart,
-            Order
+            Order,
+            OTP
         ]
     )
 

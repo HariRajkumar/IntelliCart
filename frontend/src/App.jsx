@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+const RegisterOTP = Register;
 import Home from "./pages/Home";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
@@ -31,6 +32,11 @@ function App() {
         <Route
           path="/register"
           element={<Register />}
+        />
+
+        <Route
+          path="/register-otp"
+          element={<RegisterOTP />}
         />
 
         <Route

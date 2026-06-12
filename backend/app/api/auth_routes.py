@@ -5,7 +5,14 @@ from app.schemas.user_schema import (
     UserCreate,
     UserLogin
 )
+from app.schemas.otp_schema import (
+    SendOTPRequest,
+    VerifyOTPRequest,
+    OTPResponse,
+    VerifyOTPFullResponse
+)
 from app.services.auth_service import AuthService
+from app.services.otp_service import OTPService
 
 
 router = APIRouter()
@@ -20,6 +27,32 @@ async def register(
             user_data
         )
     )
+
+
+@router.post("/register/send-otp", response_model=OTPResponse)
+async def send_otp(
+    request: SendOTPRequest
+):
+    return await OTPService.send_otp(request.email)
+
+
+@router.post("/register/verify-otp", response_model=VerifyOTPFullResponse)
+async def verify_otp(
+    request: VerifyOTPRequest
+):
+    return await OTPService.verify_otp(
+        request.email,
+        request.otp,
+        request.full_name,
+        request.password
+    )
+
+
+@router.post("/register/resend-otp", response_model=OTPResponse)
+async def resend_otp(
+    request: SendOTPRequest
+):
+    return await OTPService.resend_otp(request.email)
 
 
 @router.post("/login")
