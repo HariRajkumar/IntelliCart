@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import ProductCard from "../components/ProductCard";
 
 import { getProducts } from "../services/productService";
-
 import { getCategories } from "../services/categoryService";
 
 const Products = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryParam = searchParams.get("category") || "";
+
   const [products, setProducts] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -19,11 +22,16 @@ const Products = () => {
 
   const [categories, setCategories] = useState([]);
 
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(categoryParam);
 
   const [page, setPage] = useState(1);
 
   const [totalPages, setTotalPages] = useState(1);
+
+  useEffect(() => {
+    setSelectedCategory(categoryParam);
+    setPage(1);
+  }, [categoryParam]);
 
   useEffect(() => {
     loadCategories();
@@ -119,7 +127,7 @@ const Products = () => {
           onClick={() => {
             setSearchInput("");
             setSearch("");
-            setSelectedCategory("");
+            setSearchParams({});
             setPage(1);
           }}
           className="px-4"
@@ -130,8 +138,13 @@ const Products = () => {
         <select
           value={selectedCategory}
           onChange={(e) => {
+            const val = e.target.value;
             setPage(1);
-            setSelectedCategory(e.target.value);
+            if (val) {
+              setSearchParams({ category: val });
+            } else {
+              setSearchParams({});
+            }
           }}
           className="rounded-lg border border-border bg-surface p-3 text-text shadow-sm"
         >
