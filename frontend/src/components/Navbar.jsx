@@ -1,14 +1,27 @@
 import { Link, useLocation } from "react-router-dom";
-import { useContext } from "react";
+import { useContext, useState, useRef, useEffect } from "react";
 
 import AuthContext from "../context/AuthContext";
-import Button from "./ui/Button";
 
 const Navbar = () => {
   const {
     isAuthenticated,
     logout,
+    user,
   } = useContext(AuthContext);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const location = useLocation();
 
   const isActive = (path) => location.pathname === path;
@@ -83,13 +96,80 @@ const Navbar = () => {
                 <span>Orders</span>
               </Link>
 
-              <Button 
-                variant="secondary" 
-                onClick={logout}
-                className="px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-200"
-              >
-                Logout
-              </Button>
+              {/* User Profile Dropdown */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setDropdownOpen(!dropdownOpen)}
+                  className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface hover:bg-border/30 border border-border hover:shadow-sm transition-all duration-300 focus:outline-none"
+                >
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white font-bold text-xs shadow-sm select-none uppercase ring-2 ring-primary/10">
+                    {(user?.full_name || user?.email?.split('@')[0] || 'U').charAt(0)}
+                  </div>
+                  <span className="text-xs font-semibold text-text max-w-[120px] truncate select-none hidden sm:inline-block pr-0.5">
+                    {user?.full_name || user?.email?.split('@')[0] || 'User'}
+                  </span>
+                  <svg
+                    className={`w-3.5 h-3.5 text-muted transition-transform duration-300 ${
+                      dropdownOpen ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-2.5 w-60 rounded-2xl bg-surface/95 border border-border shadow-xl backdrop-blur-md py-2 z-50 animate-fade-in-up origin-top-right">
+                    <div className="px-4 py-2.5 border-b border-border/60">
+                      <p className="text-[10px] font-bold text-muted tracking-wider uppercase">Signed in as</p>
+                      <p className="text-xs font-bold text-text truncate mt-0.5">{user?.full_name || 'User'}</p>
+                      <p className="text-[11px] text-muted truncate">{user?.email}</p>
+                    </div>
+
+                    <div className="px-1.5 py-1">
+                      <Link
+                        to="/cart"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-text hover:bg-border/30 rounded-xl transition-colors duration-200"
+                      >
+                        <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <span>My Cart</span>
+                      </Link>
+
+                      <Link
+                        to="/orders"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-text hover:bg-border/30 rounded-xl transition-colors duration-200"
+                      >
+                        <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                        <span>My Orders</span>
+                      </Link>
+                    </div>
+
+                    <div className="border-t border-border/60 px-1.5 pt-1">
+                      <button
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          logout();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-error hover:bg-error/10 rounded-xl transition-colors duration-200"
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        <span>Sign Out</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <>

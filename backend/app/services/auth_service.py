@@ -82,7 +82,8 @@ class AuthService:
             {
                 "sub": str(user.id),
                 "email": user.email,
-                "role": user.role
+                "role": user.role,
+                "full_name": user.full_name
             }
         )
 

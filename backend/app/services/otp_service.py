@@ -144,7 +144,8 @@ class OTPService:
         token = create_access_token({
             "sub": str(new_user.id),
             "email": new_user.email,
-            "role": new_user.role
+            "role": new_user.role,
+            "full_name": new_user.full_name
         })
 
         return {
