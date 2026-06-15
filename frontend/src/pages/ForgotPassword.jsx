@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
+import OTPInput from "../components/ui/OTPInput";
 import { sendForgotPasswordOTP, resetPassword } from "../services/authService";
 import { getErrorMessage } from "../utils/errorHandler";
 
@@ -145,15 +146,10 @@ const ForgotPassword = () => {
 
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-2 ml-1">Verification Code</label>
-                <Input
-                  placeholder="Enter 6-digit OTP"
-                  type="text"
-                  maxLength={6}
+                <label className="block text-xs font-semibold text-text uppercase tracking-wider mb-3 ml-1 text-center">Verification Code</label>
+                <OTPInput
                   value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  className="text-center text-xl tracking-[0.5em] font-mono focus:tracking-[0.5em]"
-                  required
+                  onChange={(val) => setOtp(val)}
                 />
               </div>
 
