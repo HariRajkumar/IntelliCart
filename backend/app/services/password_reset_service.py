@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 
 from app.core.config import settings
-from app.core.security import hash_password
+from app.core.security import hash_password, verify_password
 from app.models.otp_model import OTP
 from app.repositories.user_repository import UserRepository
 from app.utils.email import send_reset_password_email
@@ -26,15 +26,17 @@ class PasswordResetService:
             minutes=settings.OTP_EXPIRY_MINUTES
         )
 
+        hashed_otp = hash_password(otp_code)
+
         existing_otp = await OTP.find_one(OTP.email == email)
         if existing_otp:
-            existing_otp.otp = otp_code
+            existing_otp.otp = hashed_otp
             existing_otp.otp_expiry = expiry_time
             await existing_otp.save()
         else:
             new_otp = OTP(
                 email=email,
-                otp=otp_code,
+                otp=hashed_otp,
                 otp_expiry=expiry_time
             )
             await new_otp.insert()
@@ -66,7 +68,7 @@ class PasswordResetService:
             )
 
         otp_record = await OTP.find_one(OTP.email == email)
-        if not otp_record or otp_record.otp != otp:
+        if not otp_record or not verify_password(otp, otp_record.otp):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid OTP code"
