@@ -23,7 +23,10 @@ class ProductRepository:
         category: str | None = None,
         search: str | None = None,
         min_price: float | None = None,
-        max_price: float | None = None
+        max_price: float | None = None,
+        min_rating: float | None = None,
+        in_stock: bool | None = None,
+        sort_by: str | None = None
     ):
 
         filters = {
@@ -49,9 +52,26 @@ class ProductRepository:
             if max_price is not None:
                 filters["price"]["$lte"] = max_price
 
+        if min_rating is not None:
+            filters["rating"] = {"$gte": min_rating}
+
+        if in_stock is True:
+            filters["stock"] = {"$gt": 0}
+
+        query = Product.find(filters)
+
+        if sort_by:
+            if sort_by == "price_asc":
+                query = query.sort("+price")
+            elif sort_by == "price_desc":
+                query = query.sort("-price")
+            elif sort_by == "rating_desc":
+                query = query.sort("-rating")
+            elif sort_by == "newest":
+                query = query.sort("-created_at")
+
         return await (
-            Product.find(filters)
-            .skip(skip)
+            query.skip(skip)
             .limit(limit)
             .to_list()
         )
@@ -157,7 +177,9 @@ class ProductRepository:
         category: str | None = None,
         search: str | None = None,
         min_price: float | None = None,
-        max_price: float | None = None
+        max_price: float | None = None,
+        min_rating: float | None = None,
+        in_stock: bool | None = None
     ):
 
         filters = {
@@ -182,6 +204,12 @@ class ProductRepository:
 
             if max_price is not None:
                 filters["price"]["$lte"] = max_price
+
+        if min_rating is not None:
+            filters["rating"] = {"$gte": min_rating}
+
+        if in_stock is True:
+            filters["stock"] = {"$gt": 0}
 
         return await Product.find(
             filters

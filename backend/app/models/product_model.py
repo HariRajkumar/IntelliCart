@@ -32,6 +32,14 @@ class Product(Document):
 
     images: List[str] = []
 
+    mrp: Optional[float] = Field(default=None, gt=0)
+
+    discount: float = Field(default=0.0, ge=0.0, le=100.0)
+
+    rating: float = Field(default=0.0, ge=0.0, le=5.0)
+
+    reviews_count: int = Field(default=0, ge=0)
+
     is_active: bool = True
 
     created_at: datetime = Field(

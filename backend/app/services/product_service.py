@@ -40,7 +40,10 @@ class ProductService:
         category: str | None = None,
         search: str | None = None,
         min_price: float | None = None,
-        max_price: float | None = None
+        max_price: float | None = None,
+        min_rating: float | None = None,
+        in_stock: bool | None = None,
+        sort_by: str | None = None
     ):
 
         skip = (page - 1) * limit
@@ -52,7 +55,10 @@ class ProductService:
                 category=category,
                 search=search,
                 min_price=min_price,
-                max_price=max_price
+                max_price=max_price,
+                min_rating=min_rating,
+                in_stock=in_stock,
+                sort_by=sort_by
             )
         )
 
@@ -61,7 +67,9 @@ class ProductService:
                 category=category,
                 search=search,
                 min_price=min_price,
-                max_price=max_price
+                max_price=max_price,
+                min_rating=min_rating,
+                in_stock=in_stock
             )
         )
 
@@ -180,7 +188,11 @@ class ProductService:
             "stock": product.stock,
             "category": product.category,
             "images": product.images,
-            "is_active": product.is_active
+            "is_active": product.is_active,
+            "mrp": getattr(product, "mrp", None),
+            "discount": getattr(product, "discount", 0.0),
+            "rating": getattr(product, "rating", 0.0),
+            "reviews_count": getattr(product, "reviews_count", 0)
         }
     
     @staticmethod

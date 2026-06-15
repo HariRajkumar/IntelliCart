@@ -39,7 +39,10 @@ async def get_products(
     category: str | None = None,
     search: str | None = None,
     min_price: float | None = None,
-    max_price: float | None = None
+    max_price: float | None = None,
+    min_rating: float | None = None,
+    in_stock: bool | None = None,
+    sort_by: str | None = None
 ):
 
     return await (
@@ -49,7 +52,10 @@ async def get_products(
             category=category,
             search=search,
             min_price=min_price,
-            max_price=max_price
+            max_price=max_price,
+            min_rating=min_rating,
+            in_stock=in_stock,
+            sort_by=sort_by
         )
     )
 
