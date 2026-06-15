@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends
 
 from app.dependencies.auth_dependencies import (

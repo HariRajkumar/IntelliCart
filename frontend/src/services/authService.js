@@ -53,3 +53,26 @@ export const resendOTP = async (email) => {
 
   return response.data;
 };
+
+export const sendForgotPasswordOTP = async (email) => {
+  const response = await api.post(
+    "/auth/forgot-password/send-otp",
+    { email }
+  );
+
+  return response.data;
+};
+
+export const resetPassword = async (email, otp, newPassword) => {
+  const response = await api.post(
+    "/auth/reset-password",
+    {
+      email,
+      otp,
+      new_password: newPassword,
+    }
+  );
+
+  return response.data;
+};
+
