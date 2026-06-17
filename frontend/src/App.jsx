@@ -16,6 +16,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
+import NonAdminRoute from "./components/NonAdminRoute";
 
 function App() {
   return (
@@ -25,37 +26,65 @@ function App() {
       <Routes>
         <Route
           path="/"
-          element={<Home />}
+          element={
+            <NonAdminRoute>
+              <Home />
+            </NonAdminRoute>
+          }
         />
 
         <Route
           path="/login"
-          element={<Login />}
+          element={
+            <NonAdminRoute>
+              <Login />
+            </NonAdminRoute>
+          }
         />
 
         <Route
           path="/forgot-password"
-          element={<ForgotPassword />}
+          element={
+            <NonAdminRoute>
+              <ForgotPassword />
+            </NonAdminRoute>
+          }
         />
 
         <Route
           path="/register"
-          element={<Register />}
+          element={
+            <NonAdminRoute>
+              <Register />
+            </NonAdminRoute>
+          }
         />
 
         <Route
           path="/register-otp"
-          element={<RegisterOTP />}
+          element={
+            <NonAdminRoute>
+              <RegisterOTP />
+            </NonAdminRoute>
+          }
         />
 
         <Route
           path="/products"
-          element={<Products />}
+          element={
+            <NonAdminRoute>
+              <Products />
+            </NonAdminRoute>
+          }
         />
 
         <Route
           path="/products/:id"
-          element={<ProductDetail />}
+          element={
+            <NonAdminRoute>
+              <ProductDetail />
+            </NonAdminRoute>
+          }
         />
 
         <Route
