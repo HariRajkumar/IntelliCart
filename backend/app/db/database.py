@@ -59,6 +59,27 @@ async def connect_to_mongo():
                 p.reviews_count = (name_sum % 230) + 15
                 needs_save = True
 
+            # Backfill multiple images for Keyboard and Laptop
+            pid_str = str(p.id)
+            if pid_str == "6a1ec1d40d4741f269ea9144":
+                img2 = "/uploads/products/6a1ec1d40d4741f269ea9144_2.png"
+                img3 = "/uploads/products/6a1ec1d40d4741f269ea9144_3.png"
+                if img2 not in p.images:
+                    p.images.append(img2)
+                    needs_save = True
+                if img3 not in p.images:
+                    p.images.append(img3)
+                    needs_save = True
+            elif pid_str == "6a23c4ff14d9fd3a9e72d7af":
+                img2 = "/uploads/products/6a23c4ff14d9fd3a9e72d7af_2.png"
+                img3 = "/uploads/products/6a23c4ff14d9fd3a9e72d7af_3.png"
+                if img2 not in p.images:
+                    p.images.append(img2)
+                    needs_save = True
+                if img3 not in p.images:
+                    p.images.append(img3)
+                    needs_save = True
+
             if needs_save:
                 await p.save()
                 updated_count += 1
