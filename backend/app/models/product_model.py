@@ -42,6 +42,10 @@ class Product(Document):
 
     is_active: bool = True
 
+    seller_name: Optional[str] = "IntelliCart Central Hub"
+
+    seller_postal_code: str = Field(default="400001", min_length=3, max_length=20)
+
     created_at: datetime = Field(
         default_factory=datetime.utcnow
     )

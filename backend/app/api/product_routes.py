@@ -122,3 +122,10 @@ async def upload_product_image(
             file
         )
     )
+
+@router.get("/{product_id}/delivery-estimate")
+async def get_delivery_estimate(
+    product_id: str,
+    postal_code: str
+):
+    return await ProductService.calculate_delivery_estimate(product_id, postal_code)

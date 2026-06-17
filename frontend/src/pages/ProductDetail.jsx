@@ -3,8 +3,10 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import Button from "../components/ui/Button";
-import { getProductById } from "../services/productService";
+import Input from "../components/ui/Input";
+import { getProductById, getDeliveryEstimate } from "../services/productService";
 import { addToCart } from "../services/cartService";
+import { getUserProfile } from "../services/userService";
 import { getErrorMessage } from "../utils/errorHandler";
 
 const ProductDetail = () => {
@@ -18,6 +20,10 @@ const ProductDetail = () => {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [activeTab, setActiveTab] = useState("about");
 
+  const [destPostalCode, setDestPostalCode] = useState("");
+  const [estimateLoading, setEstimateLoading] = useState(false);
+  const [estimateResult, setEstimateResult] = useState(null);
+
   useEffect(() => {
     loadProduct();
   }, [id]);
@@ -28,11 +34,50 @@ const ProductDetail = () => {
       const data = await getProductById(id);
       setProduct(data);
       setActiveImageIdx(0);
+
+      // Auto-estimate if user has default postal code
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const profileData = await getUserProfile();
+          const defaultAddr = profileData.addresses?.find((a) => a.is_default);
+          if (defaultAddr && defaultAddr.postal_code) {
+            setDestPostalCode(defaultAddr.postal_code);
+            await runDeliveryEstimate(id, defaultAddr.postal_code);
+          }
+        } catch (profileErr) {
+          console.log("Guest or profile load failed", profileErr);
+        }
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to load product details");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const runDeliveryEstimate = async (productId, postalCode) => {
+    if (!postalCode.trim()) {
+      toast.error("Please enter a valid postal code");
+      return;
+    }
+    setEstimateLoading(true);
+    try {
+      const estimate = await getDeliveryEstimate(productId, postalCode);
+      setEstimateResult(estimate);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to calculate delivery estimate");
+    } finally {
+      setEstimateLoading(false);
+    }
+  };
+
+  const handleCheckDelivery = (e) => {
+    e.preventDefault();
+    if (product) {
+      runDeliveryEstimate(product.id, destPostalCode);
     }
   };
 
@@ -232,6 +277,45 @@ const ProductDetail = () => {
             <p className="text-[10px] text-muted font-bold mt-1 tracking-wide uppercase">
               Inclusive of all taxes
             </p>
+          </div>
+
+          {/* Delivery Estimation Widget */}
+          <div className="py-4 border-b border-border/50 text-left">
+            <h3 className="text-xs font-black uppercase text-muted tracking-wider mb-2.5">
+              Delivery Options
+            </h3>
+            <form onSubmit={handleCheckDelivery} className="flex gap-2 items-center mb-3 max-w-xs">
+              <Input
+                type="text"
+                placeholder="Enter Delivery PIN Code"
+                value={destPostalCode}
+                onChange={(e) => setDestPostalCode(e.target.value)}
+                className="px-3 py-1.5 text-xs rounded-xl"
+                required
+              />
+              <Button type="submit" disabled={estimateLoading} className="px-4 py-1.5 text-xs rounded-xl shrink-0">
+                {estimateLoading ? "Checking..." : "Check"}
+              </Button>
+            </form>
+
+            {estimateResult ? (
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded-2xl animate-fade-in-up">
+                <p className="text-xs font-bold text-text flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-success shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Free Delivery: </span>
+                  <span className="text-primary">{estimateResult.delivery_date_range}</span>
+                </p>
+                <p className="text-[10px] text-muted font-semibold mt-1">
+                  Ships from: <strong>{estimateResult.seller_name}</strong> (Origin PIN: {estimateResult.origin_postal_code})
+                </p>
+              </div>
+            ) : (
+              <p className="text-[10px] text-muted font-semibold">
+                Enter your area PIN code to calculate delivery dates.
+              </p>
+            )}
           </div>
 
           {/* About Bullet Points */}

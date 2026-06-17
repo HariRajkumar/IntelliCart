@@ -34,6 +34,27 @@ async def connect_to_mongo():
 
     print("Connected to MongoDB")
 
+    # Seed default admin user if not present
+    try:
+        from app.core.roles import UserRole
+        from app.core.security import hash_password
+        
+        admin_user = await User.find_one(User.role == UserRole.ADMIN)
+        if not admin_user:
+            hashed_pw = hash_password("admin123")
+            new_admin = User(
+                full_name="IntelliCart Admin",
+                email="admin@intellicart.com",
+                hashed_password=hashed_pw,
+                role=UserRole.ADMIN,
+                is_active=True,
+                is_verified=True
+            )
+            await new_admin.insert()
+            print("Seeded default admin user: admin@intellicart.com")
+    except Exception as e:
+        print(f"Failed to seed default admin user: {e}")
+
     # Backfill migration for existing products missing new UI/UX fields
     try:
         products = await Product.find_all().to_list()
@@ -79,6 +100,14 @@ async def connect_to_mongo():
                 if img3 not in p.images:
                     p.images.append(img3)
                     needs_save = True
+
+            if getattr(p, "seller_name", None) is None:
+                p.seller_name = "IntelliCart Central Hub"
+                needs_save = True
+
+            if getattr(p, "seller_postal_code", None) is None:
+                p.seller_postal_code = "400001"
+                needs_save = True
 
             if needs_save:
                 await p.save()

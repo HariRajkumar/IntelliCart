@@ -731,9 +731,9 @@ const Home = () => {
                 </svg>
               </div>
               <div>
-                <h4 className="font-extrabold text-base text-text">Free Shipping Over ₹500</h4>
+                <h4 className="font-extrabold text-base text-text">100% Free Shipping</h4>
                 <p className="text-slate-500 text-sm mt-1 leading-relaxed">
-                  Automatic savings at checkout. Delivered securely to your doorstep within days.
+                  No minimum purchase required. Delivered securely to your doorstep within days.
                 </p>
               </div>
             </div>

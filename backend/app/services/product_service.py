@@ -192,7 +192,62 @@ class ProductService:
             "mrp": getattr(product, "mrp", None),
             "discount": getattr(product, "discount", 0.0),
             "rating": getattr(product, "rating", 0.0),
-            "reviews_count": getattr(product, "reviews_count", 0)
+            "reviews_count": getattr(product, "reviews_count", 0),
+            "seller_name": getattr(product, "seller_name", "IntelliCart Central Hub"),
+            "seller_postal_code": getattr(product, "seller_postal_code", "400001")
+        }
+
+    @staticmethod
+    async def calculate_delivery_estimate(product_id: str, postal_code: str):
+        product = await (
+            ProductRepository.get_product_by_id(
+                product_id
+            )
+        )
+        if not product or not product.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        origin = getattr(product, "seller_postal_code", "400001")
+        seller_name = getattr(product, "seller_name", "IntelliCart Central Hub")
+
+        origin_clean = "".join(c for c in origin if c.isalnum()).strip()
+        dest_clean = "".join(c for c in postal_code if c.isalnum()).strip()
+
+        if not dest_clean:
+            min_days, max_days = 3, 5
+        elif origin_clean == dest_clean:
+            min_days, max_days = 1, 1
+        elif len(origin_clean) >= 3 and len(dest_clean) >= 3 and origin_clean[:3] == dest_clean[:3]:
+            min_days, max_days = 1, 2
+        elif len(origin_clean) >= 1 and len(dest_clean) >= 1 and origin_clean[0] == dest_clean[0]:
+            min_days, max_days = 2, 3
+        else:
+            min_days, max_days = 4, 5
+
+        from datetime import datetime, timedelta
+        today = datetime.now()
+        min_delivery_date = today + timedelta(days=min_days)
+        max_delivery_date = today + timedelta(days=max_days)
+
+        min_date_str = min_delivery_date.strftime("%A, %b %d")
+        max_date_str = max_delivery_date.strftime("%A, %b %d")
+
+        if min_days == max_days:
+            delivery_date_range = min_date_str
+        else:
+            delivery_date_range = f"{min_date_str} to {max_date_str}"
+
+        return {
+            "product_id": product_id,
+            "origin_postal_code": origin,
+            "destination_postal_code": postal_code,
+            "seller_name": seller_name,
+            "min_days": min_days,
+            "max_days": max_days,
+            "delivery_date_range": delivery_date_range
         }
     
     @staticmethod

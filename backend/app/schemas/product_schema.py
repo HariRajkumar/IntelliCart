@@ -15,6 +15,8 @@ class ProductCreate(BaseModel):
     discount: float | None = None
     rating: float | None = None
     reviews_count: int | None = None
+    seller_name: str | None = "IntelliCart Central Hub"
+    seller_postal_code: str | None = "400001"
 
 
 class ProductUpdate(BaseModel):
@@ -29,6 +31,8 @@ class ProductUpdate(BaseModel):
     discount: float | None = None
     rating: float | None = None
     reviews_count: int | None = None
+    seller_name: str | None = None
+    seller_postal_code: str | None = None
 
 
 class ProductResponse(BaseModel):
@@ -45,3 +49,5 @@ class ProductResponse(BaseModel):
     discount: float
     rating: float
     reviews_count: int
+    seller_name: str | None = None
+    seller_postal_code: str | None = None

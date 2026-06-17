@@ -100,7 +100,7 @@ const Cart = () => {
   }
 
   const itemsCount = cart.items?.reduce((acc, item) => acc + item.quantity, 0) || 0;
-  const deliveryCharge = cart.total_price > 500 || cart.total_price === 0 ? 0 : 40;
+  const deliveryCharge = 0;
   const finalTotal = cart.total_price + deliveryCharge;
 
   return (
@@ -266,18 +266,8 @@ const Cart = () => {
                 </div>
                 <div className="flex justify-between">
                   <span>Delivery Charges</span>
-                  {deliveryCharge === 0 ? (
-                    <span className="text-success font-semibold">FREE</span>
-                  ) : (
-                    <span className="font-semibold">₹{deliveryCharge}</span>
-                  )}
+                  <span className="text-success font-semibold">FREE</span>
                 </div>
-
-                {deliveryCharge > 0 && (
-                  <div className="bg-amber-50 text-amber-800 text-xs p-2.5 rounded-xl border border-amber-200 mt-2">
-                    Add <strong>₹{500 - cart.total_price}</strong> more to get <strong>FREE Delivery</strong>!
-                  </div>
-                )}
               </div>
 
               <div className="flex justify-between items-center py-4 border-b border-border/60 mb-6">
