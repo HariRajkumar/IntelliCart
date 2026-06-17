@@ -131,6 +131,17 @@ const Navbar = () => {
 
                     <div className="px-1.5 py-1">
                       <Link
+                        to="/profile"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-text hover:bg-border/30 rounded-xl transition-colors duration-200"
+                      >
+                        <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span>My Profile</span>
+                      </Link>
+
+                      <Link
                         to="/cart"
                         onClick={() => setDropdownOpen(false)}
                         className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-text hover:bg-border/30 rounded-xl transition-colors duration-200"
@@ -152,6 +163,8 @@ const Navbar = () => {
                         <span>My Orders</span>
                       </Link>
                     </div>
+
+
 
                     <div className="border-t border-border/60 px-1.5 pt-1">
                       <button

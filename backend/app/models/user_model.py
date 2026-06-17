@@ -1,10 +1,21 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+import uuid
 
 from beanie import Document
-from pydantic import EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field
 
 from app.core.roles import UserRole
+
+
+class UserAddress(BaseModel):
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    address_line: str
+    city: str
+    state: str
+    postal_code: str
+    country: str = "India"
+    is_default: bool = False
 
 
 class User(Document):
@@ -19,6 +30,10 @@ class User(Document):
     is_active: bool = True
 
     is_verified: bool = False
+
+    phone_number: Optional[str] = None
+
+    addresses: List[UserAddress] = []
 
     otp: Optional[str] = None
 
