@@ -254,3 +254,37 @@ class OrderService:
         return OrderService.serialize_order(
             updated_order
         )
+
+    @staticmethod
+    async def cancel_order(
+        order_id: str,
+        user_id: str
+    ):
+        order = await OrderRepository.get_order_by_id(order_id)
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
+
+        if order.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to cancel this order"
+            )
+
+        if order.status not in (OrderStatus.PENDING, OrderStatus.PROCESSING):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Only pending or processing orders can be cancelled. Current status is '{order.status}'."
+            )
+
+        order.status = OrderStatus.CANCELLED
+
+        for item in order.items:
+            product = await ProductRepository.get_product_by_id(item.product_id)
+            if product:
+                await ProductRepository.restore_stock(product, item.quantity)
+
+        updated_order = await OrderRepository.save_order(order)
+        return OrderService.serialize_order(updated_order)

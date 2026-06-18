@@ -66,3 +66,16 @@ async def update_order_status(
             request
         )
     )
+
+@router.post("/{order_id}/cancel")
+async def cancel_order(
+    order_id: str,
+    current_user: User = Depends(get_current_user)
+):
+
+    return await (
+        OrderService.cancel_order(
+            order_id,
+            str(current_user.id)
+        )
+    )

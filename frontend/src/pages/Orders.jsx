@@ -1,5 +1,5 @@
 import { useEffect, useState, useContext } from "react";
-import { getMyOrders } from "../services/orderService";
+import { getMyOrders, cancelOrder } from "../services/orderService";
 import { addToCart } from "../services/cartService";
 import AuthContext from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -13,6 +13,9 @@ const Orders = () => {
   const [activeFilter, setActiveFilter] = useState("all");
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
+
+  const [cancellingOrderId, setCancellingOrderId] = useState(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -53,6 +56,9 @@ const Orders = () => {
     if (normalized.includes("completed") || normalized.includes("delivered")) {
       return "bg-success/15 text-success border border-success/30";
     }
+    if (normalized.includes("out_for_delivery") || normalized.includes("out for delivery")) {
+      return "bg-indigo-50 text-indigo-700 border border-indigo-200";
+    }
     if (
       normalized.includes("pending") ||
       normalized.includes("processing") ||
@@ -84,52 +90,76 @@ const Orders = () => {
       );
     }
 
-    let step = 1; // 1: Ordered, 2: Shipped, 3: Delivered
-    if (normalized.includes("shipped")) {
+    let step = 1; // 1: Placed, 2: Processed, 3: Shipped, 4: Out for Delivery, 5: Delivered
+    if (normalized.includes("processing")) {
       step = 2;
-    } else if (normalized.includes("completed") || normalized.includes("delivered")) {
+    } else if (normalized.includes("shipped")) {
       step = 3;
+    } else if (normalized.includes("out_for_delivery") || normalized.includes("out for delivery")) {
+      step = 4;
+    } else if (normalized.includes("completed") || normalized.includes("delivered")) {
+      step = 5;
     }
 
     return (
-      <div className="py-4 px-2 mt-4 border-t border-border/40">
-        <div className="relative flex items-center justify-between w-full max-w-sm sm:max-w-md mx-auto">
+      <div className="py-6 px-2 mt-4 border-t border-border/40">
+        <div className="relative flex items-center justify-between w-full max-w-lg sm:max-w-2xl mx-auto">
           {/* Line Background */}
           <div className="absolute top-1/2 left-0 right-0 h-1 bg-border/60 -translate-y-1/2 z-0 rounded-full"></div>
           {/* Active Line */}
           <div 
             className="absolute top-1/2 left-0 h-1 bg-success -translate-y-1/2 z-0 transition-all duration-500 rounded-full"
-            style={{ width: step === 1 ? "0%" : step === 2 ? "50%" : "100%" }}
+            style={{ width: `${(step - 1) * 25}%` }}
           ></div>
 
-          {/* Ordered step */}
+          {/* Placed step */}
           <div className="flex flex-col items-center z-10">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-xs shadow-sm transition duration-300 ${
               step >= 1 ? "bg-success text-white ring-4 ring-success/20" : "bg-surface border border-border text-muted"
             }`}>
               {step >= 1 ? "✓" : "1"}
             </div>
-            <span className="text-[10px] font-bold text-text mt-1">Ordered</span>
+            <span className="text-[10px] font-bold text-text mt-1.5">Placed</span>
           </div>
 
-          {/* Shipped step */}
+          {/* Processed step */}
           <div className="flex flex-col items-center z-10">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-xs shadow-sm transition duration-300 ${
               step >= 2 ? "bg-success text-white ring-4 ring-success/20" : "bg-surface border border-border text-muted"
             }`}>
               {step >= 2 ? "✓" : "2"}
             </div>
-            <span className="text-[10px] font-bold text-text mt-1">Shipped</span>
+            <span className="text-[10px] font-bold text-text mt-1.5">Processed</span>
           </div>
 
-          {/* Delivered step */}
+          {/* Shipped step */}
           <div className="flex flex-col items-center z-10">
             <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-xs shadow-sm transition duration-300 ${
               step >= 3 ? "bg-success text-white ring-4 ring-success/20" : "bg-surface border border-border text-muted"
             }`}>
               {step >= 3 ? "✓" : "3"}
             </div>
-            <span className="text-[10px] font-bold text-text mt-1">Delivered</span>
+            <span className="text-[10px] font-bold text-text mt-1.5">Shipped</span>
+          </div>
+
+          {/* Out for Delivery step */}
+          <div className="flex flex-col items-center z-10">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-xs shadow-sm transition duration-300 ${
+              step >= 4 ? "bg-success text-white ring-4 ring-success/20" : "bg-surface border border-border text-muted"
+            }`}>
+              {step >= 4 ? "✓" : "4"}
+            </div>
+            <span className="text-[10px] font-bold text-text mt-1.5 text-center whitespace-nowrap">Out for Delivery</span>
+          </div>
+
+          {/* Delivered step */}
+          <div className="flex flex-col items-center z-10">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-xs shadow-sm transition duration-300 ${
+              step >= 5 ? "bg-success text-white ring-4 ring-success/20" : "bg-surface border border-border text-muted"
+            }`}>
+              {step >= 5 ? "✓" : "5"}
+            </div>
+            <span className="text-[10px] font-bold text-text mt-1.5">Delivered</span>
           </div>
         </div>
       </div>
@@ -405,11 +435,90 @@ const Orders = () => {
                 {/* Status Timeline */}
                 {renderProgressTracker(order.status)}
 
+                {/* Cancel Order Action */}
+                {(order.status === "pending" || order.status === "processing") && (
+                  <div className="mt-4 pt-4 border-t border-border/40 flex justify-end">
+                    <button
+                      onClick={() => setCancellingOrderId(order.id)}
+                      className="px-5 py-1.5 rounded-full text-xs font-bold border border-error text-error hover:bg-error/5 transition duration-200 focus:outline-none"
+                    >
+                      Cancel Order
+                    </button>
+                  </div>
+                )}
+
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Custom Premium Cancellation Modal */}
+      {cancellingOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-surface border border-border/60 rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-premium text-center space-y-5 animate-scale-in">
+            <div className="w-14 h-14 bg-error/10 text-error rounded-full flex items-center justify-center mx-auto">
+              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-text">Cancel This Order?</h3>
+              <p className="text-xs text-muted leading-relaxed">
+                Are you sure you want to cancel your order? This will immediately restore the product stock back to our inventory.
+              </p>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={() => setCancellingOrderId(null)}
+                disabled={isCancelling}
+                className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold border border-border hover:bg-slate-50 text-text transition disabled:opacity-50"
+              >
+                No, Keep It
+              </button>
+              <button
+                onClick={async () => {
+                  setIsCancelling(true);
+                  try {
+                    await cancelOrder(cancellingOrderId);
+                    toast.success("Order cancelled successfully!");
+                    setCancellingOrderId(null);
+                    loadOrders();
+                  } catch (err) {
+                    console.error(err);
+                    toast.error(err.response?.data?.detail || "Failed to cancel order");
+                  } finally {
+                    setIsCancelling(false);
+                  }
+                }}
+                disabled={isCancelling}
+                className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-error hover:bg-red-600 text-white shadow-sm shadow-error/20 transition disabled:opacity-50"
+              >
+                {isCancelling ? "Cancelling..." : "Yes, Cancel Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scale-in {
+          from { opacity: 0; transform: scale(0.95); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.2s ease-out forwards;
+        }
+        .animate-scale-in {
+          animation: scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+      `}</style>
     </div>
   );
 };

@@ -377,9 +377,11 @@ const AdminDashboard = () => {
                                     ? "bg-success/10 text-success"
                                     : o.status === "cancelled"
                                     ? "bg-error/10 text-error"
+                                    : o.status === "out_for_delivery"
+                                    ? "bg-indigo-100 text-indigo-700"
                                     : "bg-warning/10 text-warning"
                                 }`}>
-                                  {o.status}
+                                  {o.status === "out_for_delivery" ? "out for delivery" : o.status}
                                 </span>
                               </td>
                               <td className="py-3.5 px-2 text-muted">{new Date(o.created_at).toLocaleDateString("en-IN")}</td>
@@ -810,12 +812,15 @@ const AdminDashboard = () => {
                                     ? "bg-emerald-50 border-success/30 text-success"
                                     : o.status === "cancelled"
                                     ? "bg-red-50 border-error/30 text-error"
+                                    : o.status === "out_for_delivery"
+                                    ? "bg-indigo-50 border-indigo-200 text-indigo-700"
                                     : "bg-amber-50 border-warning/30 text-warning"
                                 }`}
                               >
                                 <option value="pending">Pending</option>
                                 <option value="processing">Processing</option>
                                 <option value="shipped">Shipped</option>
+                                <option value="out_for_delivery">Out for Delivery</option>
                                 <option value="delivered">Delivered</option>
                                 <option value="cancelled">Cancelled</option>
                               </select>
