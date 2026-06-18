@@ -8,6 +8,7 @@ from app.models.category_model import Category
 from app.models.cart_model import Cart
 from app.models.order_model import Order
 from app.models.otp_model import OTP
+from app.models.review_model import Review
 
 
 class Database:
@@ -28,7 +29,8 @@ async def connect_to_mongo():
             Category,
             Cart,
             Order,
-            OTP
+            OTP,
+            Review
         ]
     )
 
@@ -117,6 +119,65 @@ async def connect_to_mongo():
             print(f"Backfill migration: updated {updated_count} products with MRP, ratings, and reviews.")
     except Exception as e:
         print(f"Failed to backfill products: {e}")
+
+
+    # Seed mock reviews for products that have no reviews yet
+    try:
+        from datetime import datetime, timedelta
+        mock_reviews_data = [
+            {
+                "user_id": "mock_user_1",
+                "user_name": "Rajesh Kumar",
+                "rating": 5,
+                "title": "Absolutely worth the price!",
+                "comment": "Build quality is top notch. Visual styles are premium and feel extremely tactile. Highly recommend purchasing this if you are a coder or developer.",
+                "days_ago": 6
+            },
+            {
+                "user_id": "mock_user_2",
+                "user_name": "Siddharth S.",
+                "rating": 4,
+                "title": "Great product, solid construction",
+                "comment": "Exceeded my expectations. Packaging was safe, and shipping was prompt. Very premium feel. Only minor issue is the cord layout could be a bit cleaner.",
+                "days_ago": 21
+            },
+            {
+                "user_id": "mock_user_3",
+                "user_name": "Nisha J.",
+                "rating": 4,
+                "title": "Decent performance, very pretty",
+                "comment": "Looks exactly like the product photos. Color scheme and aesthetics fit my room setup perfectly. Smooth interactions.",
+                "days_ago": 45
+            },
+        ]
+        all_products = await Product.find_all().to_list()
+        seeded_review_count = 0
+        for p in all_products:
+            existing_count = await Review.find(Review.product_id == str(p.id)).count()
+            if existing_count == 0:
+                for mock in mock_reviews_data:
+                    review_ts = datetime.utcnow() - timedelta(days=mock["days_ago"])
+                    rev = Review(
+                        product_id=str(p.id),
+                        user_id=mock["user_id"],
+                        user_name=mock["user_name"],
+                        rating=mock["rating"],
+                        title=mock["title"],
+                        comment=mock["comment"],
+                        created_at=review_ts,
+                        updated_at=review_ts,
+                    )
+                    await rev.insert()
+                    seeded_review_count += 1
+                # Recalculate aggregates from seeded reviews
+                all_reviews = await Review.find(Review.product_id == str(p.id)).to_list()
+                p.reviews_count = len(all_reviews)
+                p.rating = round(sum(r.rating for r in all_reviews) / len(all_reviews), 2)
+                await p.save()
+        if seeded_review_count > 0:
+            print(f"Seeded {seeded_review_count} mock reviews across {len(all_products)} products.")
+    except Exception as e:
+        print(f"Failed to seed mock reviews: {e}")
 
 
 async def close_mongo_connection():

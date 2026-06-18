@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from fastapi import UploadFile
+from datetime import datetime
 
 from app.utils.file_upload import (
     save_product_image
@@ -11,6 +12,8 @@ from app.schemas.product_schema import (
     ProductCreate,
     ProductUpdate
 )
+from app.schemas.review_schema import ReviewCreate
+from app.models.review_model import Review
 
 
 
@@ -282,3 +285,97 @@ class ProductService:
         return ProductService.serialize_product(
             updated_product
         )
+
+    @staticmethod
+    async def get_product_reviews(product_id: str):
+        """Fetch all reviews for a product sorted latest first."""
+        product = await ProductRepository.get_product_by_id(product_id)
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        reviews = await (
+            Review.find(Review.product_id == product_id)
+            .sort("-created_at")
+            .to_list()
+        )
+
+        return [
+            {
+                "id": str(r.id),
+                "product_id": r.product_id,
+                "user_id": r.user_id,
+                "user_name": r.user_name,
+                "rating": r.rating,
+                "title": r.title,
+                "comment": r.comment,
+                "created_at": r.created_at,
+            }
+            for r in reviews
+        ]
+
+    @staticmethod
+    async def submit_product_review(
+        product_id: str,
+        user_id: str,
+        user_name: str,
+        data: ReviewCreate
+    ):
+        """Create or update the authenticated user's review for this product."""
+        product = await ProductRepository.get_product_by_id(product_id)
+        if not product or not product.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        # Upsert: find existing review by this real user (skip mock users)
+        existing = await Review.find_one(
+            Review.product_id == product_id,
+            Review.user_id == user_id
+        )
+
+        now = datetime.utcnow()
+        if existing:
+            existing.rating = data.rating
+            existing.title = data.title
+            existing.comment = data.comment
+            existing.updated_at = now
+            await existing.save()
+            saved = existing
+        else:
+            saved = Review(
+                product_id=product_id,
+                user_id=user_id,
+                user_name=user_name,
+                rating=data.rating,
+                title=data.title,
+                comment=data.comment,
+                created_at=now,
+                updated_at=now,
+            )
+            await saved.insert()
+
+        # Recalculate aggregate rating and count from all real reviews
+        all_reviews = await Review.find(
+            Review.product_id == product_id
+        ).to_list()
+
+        product.reviews_count = len(all_reviews)
+        product.rating = round(
+            sum(r.rating for r in all_reviews) / len(all_reviews), 2
+        )
+        await product.save()
+
+        return {
+            "id": str(saved.id),
+            "product_id": saved.product_id,
+            "user_id": saved.user_id,
+            "user_name": saved.user_name,
+            "rating": saved.rating,
+            "title": saved.title,
+            "comment": saved.comment,
+            "created_at": saved.created_at,
+        }

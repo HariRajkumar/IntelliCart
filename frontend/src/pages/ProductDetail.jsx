@@ -1,17 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import toast from "react-hot-toast";
 
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
-import { getProductById, getDeliveryEstimate } from "../services/productService";
+import { getProductById, getDeliveryEstimate, getProductReviews, submitProductReview } from "../services/productService";
 import { addToCart } from "../services/cartService";
 import { getUserProfile } from "../services/userService";
 import { getErrorMessage } from "../utils/errorHandler";
+import AuthContext from "../context/AuthContext";
+
 
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,9 +27,20 @@ const ProductDetail = () => {
   const [estimateLoading, setEstimateLoading] = useState(false);
   const [estimateResult, setEstimateResult] = useState(null);
 
+  // Reviews state
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewHoverRating, setReviewHoverRating] = useState(0);
+  const [reviewTitle, setReviewTitle] = useState("");
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   useEffect(() => {
     loadProduct();
+    loadReviews();
   }, [id]);
+
 
   const loadProduct = async () => {
     try {
@@ -109,6 +123,50 @@ const ProductDetail = () => {
     }
   };
 
+  const loadReviews = async () => {
+    setReviewsLoading(true);
+    try {
+      const data = await getProductReviews(id);
+      setReviews(data);
+    } catch (err) {
+      console.error("Failed to load reviews", err);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  const handleSubmitReview = async (e) => {
+    e.preventDefault();
+    if (reviewRating === 0) {
+      toast.error("Please select a star rating.");
+      return;
+    }
+    if (!reviewComment.trim()) {
+      toast.error("Please write a review comment.");
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      await submitProductReview(id, {
+        rating: reviewRating,
+        title: reviewTitle,
+        comment: reviewComment,
+      });
+      toast.success("Review submitted! Thank you.");
+      setReviewRating(0);
+      setReviewTitle("");
+      setReviewComment("");
+      // Refresh reviews and product aggregate
+      await loadReviews();
+      const updatedProduct = await getProductById(id);
+      setProduct(updatedProduct);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || "Failed to submit review");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-[60vh] gap-3">
@@ -152,14 +210,12 @@ const ProductDetail = () => {
     "Product ID": product.id,
   };
 
-  // Star review mock distribution data
-  const ratingPercentages = {
-    5: 68,
-    4: 18,
-    3: 8,
-    2: 4,
-    1: 2,
-  };
+  // Compute live rating distribution from loaded reviews
+  const ratingPercentages = [5, 4, 3, 2, 1].reduce((acc, star) => {
+    const count = reviews.filter((r) => r.rating === star).length;
+    acc[star] = reviews.length > 0 ? Math.round((count / reviews.length) * 100) : 0;
+    return acc;
+  }, {});
 
   // Star ratings helper
   const renderStars = (ratingVal, sizeClass = "w-4 h-4") => (
@@ -510,100 +566,241 @@ const ProductDetail = () => {
 
       {/* 4. Customer Reviews Section (Bottom Area) */}
       <div id="reviews" className="mt-16 pt-12 border-t border-border/40">
-        <h2 className="text-xl font-extrabold text-text mb-6">
-          Customer Ratings & Reviews
+        <h2 className="text-xl font-extrabold text-text mb-8">
+          Customer Ratings &amp; Reviews
         </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-          {/* Rating Breakdown Bar Chart (4 Cols) */}
-          <div className="md:col-span-4 space-y-4">
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-10 items-start">
+          {/* Rating Breakdown (4 Cols) */}
+          <div className="md:col-span-4 space-y-5">
             <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-black text-text">{rating.toFixed(1)}</span>
+              <span className="text-5xl font-black text-text">{(product.rating || 0).toFixed(1)}</span>
               <span className="text-sm font-semibold text-muted">out of 5</span>
             </div>
-            
+
             <div className="mb-2">
-              {renderStars(rating, "w-5 h-5")}
-              <p className="text-xs font-semibold text-muted mt-1.5">{reviewsCount} global ratings</p>
+              {renderStars(product.rating || 0, "w-5 h-5")}
+              <p className="text-xs font-semibold text-muted mt-1.5">
+                {reviewsLoading ? "Loading..." : `${reviews.length} global rating${reviews.length !== 1 ? "s" : ""}`}
+              </p>
             </div>
 
-            {/* Progress Bar Distribution */}
-            <div className="space-y-2 mt-4 max-w-sm">
-              {Object.entries(ratingPercentages)
-                .reverse()
-                .map(([star, percent]) => (
-                  <div key={star} className="flex items-center gap-3 text-xs">
-                    <button className="font-semibold text-primary hover:underline w-10 text-left">
-                      {star} star
-                    </button>
-                    <div className="flex-1 h-3 rounded bg-slate-100 overflow-hidden border border-border/30">
-                      <div
-                        className="h-full bg-brand-amber rounded transition-all duration-500"
-                        style={{ width: `${percent}%` }}
-                      />
-                    </div>
-                    <span className="text-muted font-bold w-8 text-right">{percent}%</span>
+            {/* Dynamic Distribution Bars */}
+            <div className="space-y-2.5 max-w-sm">
+              {[5, 4, 3, 2, 1].map((star) => (
+                <div key={star} className="flex items-center gap-3 text-xs">
+                  <span className="font-semibold text-primary w-10 text-left shrink-0">{star} star</span>
+                  <div className="flex-1 h-2.5 rounded-full bg-slate-100 overflow-hidden border border-border/20">
+                    <div
+                      className="h-full bg-brand-amber rounded-full transition-all duration-700"
+                      style={{ width: `${ratingPercentages[star] || 0}%` }}
+                    />
                   </div>
-                ))}
-            </div>
-          </div>
-
-          {/* Customer Reviews List (8 Cols) */}
-          <div className="md:col-span-8 space-y-6">
-            <h3 className="text-base font-bold text-text pb-2 border-b border-border/40">
-              Top Reviews from India
-            </h3>
-
-            <div className="space-y-6 division-y division-border/40">
-              {[
-                {
-                  author: "Rajesh Kumar",
-                  stars: 5,
-                  title: "Absolutely worth the price!",
-                  date: "June 12, 2026",
-                  text: "Build quality is top notch. Visual styles are premium, and keys feel extremely tactile. Highly recommend purchasing this if you are a coder or developer.",
-                },
-                {
-                  author: "Siddharth S.",
-                  stars: 4,
-                  title: "Great product, solid construction",
-                  date: "May 28, 2026",
-                  text: "Exceeded my expectations. Packaging was safe, and shipping was prompt. Very premium feel. Only minor issue is the cord layout could be a bit cleaner.",
-                },
-                {
-                  author: "Nisha J.",
-                  stars: 4,
-                  title: "Decent performance, very pretty",
-                  date: "May 04, 2026",
-                  text: "Looks exactly like the product photos. Color scheme and aesthetics fit my room setup perfectly. Smooth interactions.",
-                },
-              ].map((rev, idx) => (
-                <div key={idx} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs">
-                      {rev.author[0]}
-                    </div>
-                    <span className="text-xs font-bold text-text">{rev.author}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {renderStars(rev.stars, "w-3.5 h-3.5")}
-                    <span className="text-xs font-bold text-text">{rev.title}</span>
-                  </div>
-
-                  <p className="text-[10px] text-muted font-semibold">
-                    Reviewed in India on {rev.date} <span className="text-brand-discount/80 font-bold ml-1.5">• Verified Purchase</span>
-                  </p>
-
-                  <p className="text-xs text-muted leading-relaxed">
-                    {rev.text}
-                  </p>
+                  <span className="text-muted font-bold w-8 text-right shrink-0">{ratingPercentages[star] || 0}%</span>
                 </div>
               ))}
             </div>
           </div>
+
+          {/* Reviews List + Submission Form (8 Cols) */}
+          <div className="md:col-span-8 space-y-8">
+
+            {/* --- Submit Review Form --- */}
+            <div className="border border-border/60 rounded-2xl overflow-hidden shadow-sm">
+              <div className="bg-gradient-to-r from-slate-50 to-primary/5 border-b border-border/40 px-5 py-3.5 flex items-center gap-2">
+                <svg className="w-4 h-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <h3 className="text-sm font-extrabold text-text">Write a Customer Review</h3>
+              </div>
+
+              <div className="p-5">
+                {user ? (
+                  <form onSubmit={handleSubmitReview} className="space-y-4">
+                    {/* Interactive Star Rating Selector */}
+                    <div>
+                      <p className="text-xs font-bold text-muted uppercase tracking-wider mb-2.5">Your Rating</p>
+                      <div className="flex items-center gap-1.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            id={`review-star-${star}`}
+                            onClick={() => setReviewRating(star)}
+                            onMouseEnter={() => setReviewHoverRating(star)}
+                            onMouseLeave={() => setReviewHoverRating(0)}
+                            className="transition-transform hover:scale-110 active:scale-95 focus:outline-none"
+                            title={["Terrible", "Poor", "Average", "Good", "Excellent"][star - 1]}
+                          >
+                            <svg
+                              className={`w-9 h-9 transition-all duration-100 drop-shadow-sm ${
+                                star <= (reviewHoverRating || reviewRating)
+                                  ? "fill-brand-amber text-brand-amber scale-105"
+                                  : "fill-none text-border stroke-border"
+                              }`}
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.907c.961 0 1.36 1.25.588 1.81l-3.97 2.883a1 1 0 00-.364 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.971-2.883a1 1 0 00-1.18 0l-3.97 2.883c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.364-1.118l-3.97-2.883c-.772-.56-.373-1.81.588-1.81h4.907a1 1 0 00.95-.69l1.519-4.674z"
+                              />
+                            </svg>
+                          </button>
+                        ))}
+                        {(reviewHoverRating || reviewRating) > 0 && (
+                          <span className={`ml-2 text-xs font-bold px-2.5 py-1 rounded-full ${
+                            (reviewHoverRating || reviewRating) >= 4 ? "bg-success/10 text-success" :
+                            (reviewHoverRating || reviewRating) === 3 ? "bg-amber-50 text-amber-700" :
+                            "bg-red-50 text-red-600"
+                          }`}>
+                            {["Terrible", "Poor", "Average", "Good", "Excellent"][(reviewHoverRating || reviewRating) - 1]}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Review Title */}
+                    <div>
+                      <label className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block">Review Title <span className="normal-case font-normal">(optional)</span></label>
+                      <input
+                        id="review-title-input"
+                        type="text"
+                        placeholder="Summarize your experience in one line..."
+                        value={reviewTitle}
+                        onChange={(e) => setReviewTitle(e.target.value)}
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition"
+                        maxLength={120}
+                      />
+                    </div>
+
+                    {/* Review Comment */}
+                    <div>
+                      <label className="text-xs font-bold text-muted uppercase tracking-wider mb-1.5 block">Your Review</label>
+                      <textarea
+                        id="review-comment-input"
+                        placeholder="Tell other customers what you think about this product — quality, value, packaging, etc."
+                        value={reviewComment}
+                        onChange={(e) => setReviewComment(e.target.value)}
+                        rows={4}
+                        required
+                        className="w-full px-3 py-2.5 text-sm rounded-xl border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition resize-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 flex-wrap gap-3">
+                      <p className="text-[10px] text-muted font-semibold">
+                        Posting as <span className="font-bold text-text">{user.full_name || user.email}</span>
+                      </p>
+                      <button
+                        id="submit-review-btn"
+                        type="submit"
+                        disabled={submittingReview || reviewRating === 0}
+                        className="px-6 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary-hover text-white shadow-sm shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
+                      >
+                        {submittingReview ? (
+                          <span className="flex items-center gap-2">
+                            <svg className="animate-spin h-3.5 w-3.5" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            Submitting...
+                          </span>
+                        ) : "Submit Review"}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                      <svg className="w-7 h-7 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                    </div>
+                    <p className="text-sm font-bold text-text">Sign in to write a review</p>
+                    <p className="text-xs text-muted max-w-xs leading-relaxed">Share your experience to help other customers make the right choice.</p>
+                    <button
+                      onClick={() => navigate("/login")}
+                      className="mt-1 px-6 py-2.5 rounded-xl text-xs font-bold bg-primary hover:bg-primary-hover text-white shadow-sm shadow-primary/20 transition"
+                    >
+                      Sign In to Review
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* --- Live Reviews List --- */}
+            <div>
+              <h3 className="text-base font-bold text-text pb-3 border-b border-border/40 mb-5">
+                {reviewsLoading ? "Loading reviews..." : `${reviews.length} Customer Review${reviews.length !== 1 ? "s" : ""}`}
+              </h3>
+
+              {reviewsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <svg className="animate-spin h-7 w-7 text-primary/60" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                </div>
+              ) : reviews.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+                  <svg className="w-12 h-12 text-muted/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p className="text-sm font-semibold text-muted">No reviews yet.</p>
+                  <p className="text-xs text-muted">Be the first to share your experience!</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {reviews.map((rev, idx) => (
+                    <div key={rev.id || idx} className="group pb-6 border-b border-border/25 last:border-none last:pb-0 animate-fade-in-up" style={{ animationDelay: `${idx * 60}ms` }}>
+                      {/* Author Row */}
+                      <div className="flex items-center gap-2.5 mb-2.5">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-primary font-black text-sm shrink-0 border border-primary/10">
+                          {rev.user_name?.[0]?.toUpperCase() || "?"}
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-text block">{rev.user_name}</span>
+                          <p className="text-[10px] text-muted font-semibold">
+                            {new Date(rev.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+                            {rev.user_id && !rev.user_id.startsWith("mock_") && (
+                              <span className="text-success font-bold ml-2">✓ Verified Purchase</span>
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Stars + Title */}
+                      <div className="flex items-center gap-2 mb-1.5">
+                        {renderStars(rev.rating, "w-3.5 h-3.5")}
+                        {rev.title && (
+                          <span className="text-xs font-bold text-text">{rev.title}</span>
+                        )}
+                      </div>
+
+                      {/* Review Body */}
+                      <p className="text-xs text-muted leading-relaxed">{rev.comment}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes fade-in-up {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+          animation: fade-in-up 0.35s ease-out both;
+        }
+      `}</style>
     </div>
   );
 };

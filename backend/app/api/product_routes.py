@@ -4,13 +4,15 @@ from fastapi import APIRouter, Depends, Query
 from fastapi import File, UploadFile
 
 from app.dependencies.auth_dependencies import (
-    admin_required
+    admin_required,
+    get_current_user
 )
 from app.models.user_model import User
 from app.schemas.product_schema import (
     ProductCreate,
     ProductUpdate
 )
+from app.schemas.review_schema import ReviewCreate
 from app.services.product_service import (
     ProductService
 )
@@ -129,3 +131,25 @@ async def get_delivery_estimate(
     postal_code: str
 ):
     return await ProductService.calculate_delivery_estimate(product_id, postal_code)
+
+
+@router.get("/{product_id}/reviews")
+async def get_product_reviews(
+    product_id: str
+):
+    return await ProductService.get_product_reviews(product_id)
+
+
+@router.post("/{product_id}/reviews")
+async def submit_product_review(
+    product_id: str,
+    review_data: ReviewCreate,
+    current_user: User = Depends(get_current_user)
+):
+    user_name = getattr(current_user, "full_name", None) or current_user.email.split("@")[0]
+    return await ProductService.submit_product_review(
+        product_id=product_id,
+        user_id=str(current_user.id),
+        user_name=user_name,
+        data=review_data
+    )
