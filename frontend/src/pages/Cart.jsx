@@ -68,21 +68,8 @@ const Cart = () => {
     }
   };
 
-  const handleCheckout = async () => {
-    setCheckoutLoading(true);
-    try {
-      await checkout();
-      setCart({
-        items: [],
-        total_price: 0,
-      });
-      toast.success("Order placed successfully!");
-      navigate("/orders");
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    } finally {
-      setCheckoutLoading(false);
-    }
+  const handleCheckout = () => {
+    navigate("/checkout");
   };
 
   if (!cart) {

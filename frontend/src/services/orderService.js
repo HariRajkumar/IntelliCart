@@ -1,8 +1,9 @@
 import api from "../api/axios";
 
-export const checkout = async () => {
+export const checkout = async (checkoutData) => {
   const response = await api.post(
-    "/orders/checkout"
+    "/orders/checkout",
+    checkoutData
   );
 
   return response.data;

@@ -729,6 +729,8 @@ const AdminDashboard = () => {
                       <thead>
                         <tr className="border-b border-border/60 text-muted uppercase font-bold tracking-wider sticky top-0 bg-surface z-10">
                           <th className="py-3 px-2">Order details</th>
+                          <th className="py-3 px-2">Shipping Address</th>
+                          <th className="py-3 px-2">Payment Details</th>
                           <th className="py-3 px-2">Total Amount</th>
                           <th className="py-3 px-2">Date</th>
                           <th className="py-3 px-2">Status</th>
@@ -749,6 +751,45 @@ const AdminDashboard = () => {
                                     <span>Qty: {item.quantity} ({item.price} each)</span>
                                   </div>
                                 ))}
+                              </div>
+                            </td>
+
+                            <td className="py-4 px-2 max-w-[200px]">
+                              {o.shipping_address ? (
+                                <div className="space-y-0.5 text-text text-[11px]">
+                                  <p className="font-bold">{o.shipping_address.address_line}</p>
+                                  <p>{o.shipping_address.city}, {o.shipping_address.state}</p>
+                                  <p className="text-muted">{o.shipping_address.postal_code}, {o.shipping_address.country}</p>
+                                </div>
+                              ) : (
+                                <span className="text-muted italic text-[10px]">No address</span>
+                              )}
+                            </td>
+
+                            <td className="py-4 px-2">
+                              <div className="space-y-1 text-[10px]">
+                                <div className="flex gap-1.5 items-center">
+                                  <span className="text-muted font-bold">Method:</span>
+                                  <span className="font-extrabold uppercase text-text">{o.payment_method || "N/A"}</span>
+                                </div>
+                                <div className="flex gap-1.5 items-center">
+                                  <span className="text-muted font-bold">Status:</span>
+                                  <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                    o.payment_status === "paid"
+                                      ? "bg-emerald-50 text-success"
+                                      : o.payment_status === "failed"
+                                      ? "bg-red-50 text-error"
+                                      : "bg-amber-50 text-warning"
+                                  }`}>
+                                    {o.payment_status || "pending"}
+                                  </span>
+                                </div>
+                                {o.payment_transaction_id && (
+                                  <div className="text-muted flex flex-col mt-1">
+                                    <span className="font-bold text-[9px]">Tx ID:</span>
+                                    <span className="font-mono text-text select-all text-[9px]">{o.payment_transaction_id}</span>
+                                  </div>
+                                )}
                               </div>
                             </td>
                             

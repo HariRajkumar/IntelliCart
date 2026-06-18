@@ -2,9 +2,11 @@ from fastapi import HTTPException, status
 
 from app.models.order_model import OrderItem
 from app.core.order_status import OrderStatus
+from app.models.user_model import User, UserAddress
 
 from app.schemas.order_schema import (
-    UpdateOrderStatusRequest
+    UpdateOrderStatusRequest,
+    CheckoutRequest
 )
 from app.repositories.cart_repository import (
     CartRepository
@@ -21,7 +23,8 @@ class OrderService:
 
     @staticmethod
     async def checkout(
-        user_id: str
+        user_id: str,
+        request: CheckoutRequest
     ):
 
         cart = await (
@@ -34,6 +37,41 @@ class OrderService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cart is empty"
+            )
+
+        # Resolve shipping address
+        shipping_address = None
+        if request.shipping_address:
+            shipping_address = UserAddress(
+                id=request.shipping_address.id,
+                address_line=request.shipping_address.address_line,
+                city=request.shipping_address.city,
+                state=request.shipping_address.state,
+                postal_code=request.shipping_address.postal_code,
+                country=request.shipping_address.country,
+                is_default=request.shipping_address.is_default
+            )
+        elif request.shipping_address_id:
+            user = await User.get(user_id)
+            if user and user.addresses:
+                matching = next((a for a in user.addresses if a.id == request.shipping_address_id), None)
+                if matching:
+                    shipping_address = matching
+        
+        # Fallback to user default address if not set
+        if not shipping_address:
+            user = await User.get(user_id)
+            if user and user.addresses:
+                default_addr = next((a for a in user.addresses if a.is_default), None)
+                if default_addr:
+                    shipping_address = default_addr
+                elif user.addresses:
+                    shipping_address = user.addresses[0]
+        
+        if not shipping_address:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Shipping address is required. Please set up a shipping address in your profile first."
             )
 
         order_items = []
@@ -87,7 +125,11 @@ class OrderService:
                     "user_id": user_id,
                     "items": order_items,
                     "total_price": cart.total_price,
-                    "status": "pending"
+                    "status": "pending",
+                    "shipping_address": shipping_address,
+                    "payment_method": request.payment_method,
+                    "payment_status": request.payment_status or "pending",
+                    "payment_transaction_id": request.payment_transaction_id
                 }
             )
         )
@@ -146,6 +188,18 @@ class OrderService:
             ],
             "total_price": order.total_price,
             "status": order.status,
+            "shipping_address": {
+                "id": order.shipping_address.id,
+                "address_line": order.shipping_address.address_line,
+                "city": order.shipping_address.city,
+                "state": order.shipping_address.state,
+                "postal_code": order.shipping_address.postal_code,
+                "country": order.shipping_address.country,
+                "is_default": order.shipping_address.is_default
+            } if getattr(order, "shipping_address", None) else None,
+            "payment_method": getattr(order, "payment_method", None),
+            "payment_status": getattr(order, "payment_status", "pending"),
+            "payment_transaction_id": getattr(order, "payment_transaction_id", None),
             "created_at": order.created_at
         }
     

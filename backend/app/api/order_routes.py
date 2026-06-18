@@ -10,7 +10,8 @@ from app.services.order_service import (
     OrderService
 )
 from app.schemas.order_schema import (
-    UpdateOrderStatusRequest
+    UpdateOrderStatusRequest,
+    CheckoutRequest
 )
 
 
@@ -19,12 +20,14 @@ router = APIRouter()
 
 @router.post("/checkout")
 async def checkout(
+    request: CheckoutRequest,
     current_user: User = Depends(get_current_user)
 ):
 
     return await (
         OrderService.checkout(
-            str(current_user.id)
+            str(current_user.id),
+            request
         )
     )
 

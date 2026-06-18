@@ -266,7 +266,11 @@ const Orders = () => {
                   </div>
                   <div>
                     <p className="uppercase font-bold tracking-wider text-[10px]">Ship To</p>
-                    <p className="font-semibold text-text mt-0.5">{shipToName}</p>
+                    <p className="font-semibold text-text mt-0.5">
+                      {order.shipping_address 
+                        ? `${order.shipping_address.city} (PIN ${order.shipping_address.postal_code})`
+                        : shipToName}
+                    </p>
                   </div>
                 </div>
 
@@ -297,6 +301,44 @@ const Orders = () => {
                     {order.status}
                   </span>
                 </div>
+
+                {/* Shipping & Payment Details Summary */}
+                {(order.shipping_address || order.payment_method) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5 p-4 bg-slate-50 border border-border/40 rounded-2xl text-xs text-left">
+                    {order.shipping_address && (
+                      <div>
+                        <h4 className="font-bold text-muted uppercase tracking-wider text-[10px] mb-1">Delivery Address</h4>
+                        <p className="font-bold text-text">{order.shipping_address.address_line}</p>
+                        <p className="font-semibold text-slate-500 mt-0.5">
+                          {order.shipping_address.city}, {order.shipping_address.state} - {order.shipping_address.postal_code}
+                        </p>
+                        <p className="text-[9px] text-muted font-bold mt-1 uppercase">{order.shipping_address.country}</p>
+                      </div>
+                    )}
+                    {order.payment_method && (
+                      <div className="flex flex-col justify-between">
+                        <div>
+                          <h4 className="font-bold text-muted uppercase tracking-wider text-[10px] mb-1">Payment Method</h4>
+                          <p className="font-bold text-text uppercase">
+                            {order.payment_method} 
+                            <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full capitalize font-extrabold ${
+                              order.payment_status === "paid" ? "bg-success/10 text-success" : "bg-amber-100 text-amber-800"
+                            }`}>
+                              {order.payment_status}
+                            </span>
+                          </p>
+                        </div>
+                        {order.payment_transaction_id && (
+                          <div className="mt-2 pt-2 border-t border-border/30">
+                            <p className="text-[10px] text-muted font-mono break-all">
+                              Transaction ID: {order.payment_transaction_id}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Items List */}
                 <div className="divide-y divide-border/40">
