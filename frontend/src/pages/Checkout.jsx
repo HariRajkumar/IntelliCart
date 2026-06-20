@@ -864,7 +864,7 @@ const Checkout = () => {
                       <div key={item.product_id} className="flex justify-between items-center py-3 first:pt-0 last:pb-0 text-xs">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg border border-border/40 bg-slate-50 flex items-center justify-center p-1">
-                            <img src={`http://localhost:8000${item.image}`} alt={item.name} className="w-full h-full object-contain mix-blend-multiply" />
+                            <img src={`${import.meta.env.VITE_BACKEND_URL}${item.image}`} alt={item.name} className="w-full h-full object-contain mix-blend-multiply" />
                           </div>
                           <div>
                             <p className="font-bold text-text line-clamp-1 max-w-[200px] sm:max-w-[350px]">{item.name}</p>

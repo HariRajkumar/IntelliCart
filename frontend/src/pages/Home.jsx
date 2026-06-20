@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import { getProducts } from "../services/productService";
@@ -856,7 +857,7 @@ const Home = () => {
             <p className="text-slate-400 text-xs leading-relaxed">
               Subscribe to get notified about our premium tech drops and seasonal AI selections.
             </p>
-            <form onSubmit={(e) => { e.preventDefault(); alert("Thanks for subscribing!"); }} className="flex gap-2">
+            <form onSubmit={(e) => { e.preventDefault(); toast.success("Thanks for subscribing!"); }} className="flex gap-2">
               <input
                 type="email"
                 required

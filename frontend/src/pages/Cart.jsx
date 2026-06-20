@@ -147,7 +147,7 @@ const Cart = () => {
                       <img
                         src={
                           item.image
-                            ? `http://localhost:8000${item.image}`
+                            ? `${import.meta.env.VITE_BACKEND_URL}${item.image}`
                             : "https://placehold.co/150"
                         }
                         alt={item.name}
