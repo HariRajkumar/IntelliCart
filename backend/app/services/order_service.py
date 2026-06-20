@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from fastapi import HTTPException, status
 
 from app.models.order_model import OrderItem
@@ -17,6 +20,12 @@ from app.repositories.order_repository import (
 from app.repositories.product_repository import (
     ProductRepository
 )
+from app.utils.email import (
+    send_order_confirmation_email,
+    send_logistics_update_email
+)
+
+logger = logging.getLogger(__name__)
 
 
 class OrderService:
@@ -140,6 +149,24 @@ class OrderService:
 
         await CartRepository.save_cart(cart)
 
+        # ---------------------------------------------------------------
+        # Send order confirmation email to the customer (fire-and-forget)
+        # ---------------------------------------------------------------
+        async def _send_confirmation():
+            try:
+                user = await User.get(user_id)
+                if user:
+                    await send_order_confirmation_email(
+                        to_email=str(user.email),
+                        customer_name=user.full_name or str(user.email),
+                        order=order
+                    )
+                    logger.info("Order confirmation email sent to %s", user.email)
+            except Exception as exc:
+                logger.error("Failed to send order confirmation email: %s", exc)
+
+        asyncio.create_task(_send_confirmation())
+
         return OrderService.serialize_order(order)
 
     @staticmethod
@@ -250,6 +277,30 @@ class OrderService:
         updated_order = await (
             OrderRepository.save_order(order)
         )
+
+        # ---------------------------------------------------------------
+        # Send logistics update email when status changes to a key state
+        # ---------------------------------------------------------------
+        NOTIFY_STATUSES = {OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.CANCELLED}
+        if request.status in NOTIFY_STATUSES and old_status != request.status:
+            async def _send_update(order_ref=updated_order, new_st=request.status):
+                try:
+                    user = await User.get(order_ref.user_id)
+                    if user:
+                        await send_logistics_update_email(
+                            to_email=str(user.email),
+                            customer_name=user.full_name or str(user.email),
+                            order_id=str(order_ref.id),
+                            new_status=new_st.value  # use .value → "shipped" / "delivered" / "cancelled"
+                        )
+                        logger.info(
+                            "Logistics update email (%s) sent to %s",
+                            new_st.value, user.email
+                        )
+                except Exception as exc:
+                    logger.error("Failed to send logistics update email: %s", exc)
+
+            asyncio.create_task(_send_update())
 
         return OrderService.serialize_order(
             updated_order
