@@ -26,6 +26,7 @@ const Profile = () => {
   // Address fields (for create/update)
   const [isEditingAddress, setIsEditingAddress] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState(null);
+  const [deletingAddressId, setDeletingAddressId] = useState(null);
   const [addressLine, setAddressLine] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
@@ -162,12 +163,12 @@ const Profile = () => {
   };
 
   const handleDeleteAddress = async (addressId) => {
-    if (!confirm("Are you sure you want to delete this address?")) return;
     setSaving(true);
     try {
       const updatedAddresses = await deleteUserAddress(addressId);
       setProfile((prev) => ({ ...prev, addresses: updatedAddresses }));
       toast.success("Address removed successfully!");
+      setDeletingAddressId(null);
       if (editingAddressId === addressId) {
         resetAddressForm();
       }
@@ -201,6 +202,7 @@ const Profile = () => {
     setPostalCode("");
     setCountry("India");
     setIsDefault(false);
+    setDeletingAddressId(null);
   };
 
   if (loading) {
@@ -437,16 +439,35 @@ const Profile = () => {
                               </svg>
                               <span>Edit</span>
                             </button>
-                            <button
-                              onClick={() => handleDeleteAddress(addr.id)}
-                              disabled={saving}
-                              className="text-xs font-bold text-error hover:underline transition flex items-center gap-1"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                              <span>Delete</span>
-                            </button>
+                            {deletingAddressId === addr.id ? (
+                              <div className="flex items-center gap-2 bg-rose-50 border border-rose-200/60 px-2.5 py-1 rounded-xl animate-fade-in">
+                                <span className="text-[10px] font-black text-rose-500 uppercase tracking-wider">Confirm Delete?</span>
+                                <button
+                                  onClick={() => handleDeleteAddress(addr.id)}
+                                  disabled={saving}
+                                  className="text-xs font-black text-white bg-error hover:bg-error-hover px-2.5 py-1 rounded-lg transition"
+                                >
+                                  Yes
+                                </button>
+                                <button
+                                  onClick={() => setDeletingAddressId(null)}
+                                  className="text-xs font-bold text-muted hover:text-text px-1.5 py-1"
+                                >
+                                  No
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setDeletingAddressId(addr.id)}
+                                disabled={saving}
+                                className="text-xs font-bold text-error hover:underline transition flex items-center gap-1"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                <span>Delete</span>
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
