@@ -30,6 +30,8 @@ class Product(Document):
 
     category: str
 
+    specifications: dict[str, str] = Field(default_factory=dict)
+
     images: List[str] = []
 
     mrp: Optional[float] = Field(default=None, gt=0)

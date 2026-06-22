@@ -11,7 +11,8 @@ class ProductRepository:
         product_data: dict
     ) -> Product:
 
-        product = Product(**product_data)
+        filtered_data = {k: v for k, v in product_data.items() if v is not None}
+        product = Product(**filtered_data)
 
         await product.insert()
 

@@ -17,6 +17,7 @@ class ProductCreate(BaseModel):
     reviews_count: int | None = None
     seller_name: str | None = "IntelliCart Central Hub"
     seller_postal_code: str | None = "400001"
+    specifications: dict[str, str] | None = None
 
 
 class ProductUpdate(BaseModel):
@@ -33,6 +34,7 @@ class ProductUpdate(BaseModel):
     reviews_count: int | None = None
     seller_name: str | None = None
     seller_postal_code: str | None = None
+    specifications: dict[str, str] | None = None
 
 
 class ProductResponse(BaseModel):
@@ -51,3 +53,4 @@ class ProductResponse(BaseModel):
     reviews_count: int
     seller_name: str | None = None
     seller_postal_code: str | None = None
+    specifications: dict[str, str] = {}

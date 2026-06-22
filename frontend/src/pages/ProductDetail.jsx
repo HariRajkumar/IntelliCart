@@ -201,14 +201,21 @@ const ProductDetail = () => {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const specData = {
-    Brand: "IntelliCart Premium",
-    Category: product.category,
-    Availability: product.stock > 0 ? "In Stock" : "Out of Stock",
-    Warranty: "1 Year Limited Warranty",
-    "Secure Checkout": "Verified Secure Pay",
-    "Product ID": product.id,
-  };
+  const specData = (product.specifications && Object.keys(product.specifications).length > 0)
+    ? {
+        ...product.specifications,
+        Category: product.category,
+        Availability: product.stock > 0 ? "In Stock" : "Out of Stock",
+        "Product ID": product.id,
+      }
+    : {
+        Brand: "IntelliCart Premium",
+        Category: product.category,
+        Availability: product.stock > 0 ? "In Stock" : "Out of Stock",
+        Warranty: "1 Year Limited Warranty",
+        "Secure Checkout": "Verified Secure Pay",
+        "Product ID": product.id,
+      };
 
   // Compute live rating distribution from loaded reviews
   const ratingPercentages = [5, 4, 3, 2, 1].reduce((acc, star) => {

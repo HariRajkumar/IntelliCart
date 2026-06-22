@@ -232,7 +232,8 @@ class ProductService:
             "rating": getattr(product, "rating", 0.0),
             "reviews_count": getattr(product, "reviews_count", 0),
             "seller_name": getattr(product, "seller_name", "IntelliCart Central Hub"),
-            "seller_postal_code": getattr(product, "seller_postal_code", "400001")
+            "seller_postal_code": getattr(product, "seller_postal_code", "400001"),
+            "specifications": getattr(product, "specifications", {})
         }
 
     @staticmethod

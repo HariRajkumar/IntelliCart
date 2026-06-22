@@ -37,6 +37,7 @@ const AdminDashboard = () => {
   const [prodMRP, setProdMRP] = useState("");
   const [sellerName, setSellerName] = useState("");
   const [sellerPostalCode, setSellerPostalCode] = useState("");
+  const [prodSpecs, setProdSpecs] = useState([{ key: "", value: "" }]);
 
   // Product Image upload states
   const [uploadingImageId, setUploadingImageId] = useState(null);
@@ -100,6 +101,13 @@ const AdminDashboard = () => {
       return;
     }
 
+    const specsDict = {};
+    prodSpecs.forEach((spec) => {
+      if (spec.key.trim()) {
+        specsDict[spec.key.trim()] = spec.value.trim();
+      }
+    });
+
     const payload = {
       name: prodName,
       description: prodDescription,
@@ -109,6 +117,7 @@ const AdminDashboard = () => {
       mrp: prodMRP ? parseFloat(prodMRP) : undefined,
       seller_name: sellerName || undefined,
       seller_postal_code: sellerPostalCode || undefined,
+      specifications: specsDict,
     };
 
     setSaving(true);
@@ -140,6 +149,10 @@ const AdminDashboard = () => {
     setProdMRP(prod.mrp || "");
     setSellerName(prod.seller_name || "");
     setSellerPostalCode(prod.seller_postal_code || "");
+    
+    const specsList = Object.entries(prod.specifications || {}).map(([k, v]) => ({ key: k, value: v }));
+    setProdSpecs(specsList.length > 0 ? specsList : [{ key: "", value: "" }]);
+
     window.scrollTo({ top: 350, behavior: "smooth" });
   };
 
@@ -197,6 +210,7 @@ const AdminDashboard = () => {
     setProdMRP("");
     setSellerName("");
     setSellerPostalCode("");
+    setProdSpecs([{ key: "", value: "" }]);
   };
 
   // Category actions
@@ -635,6 +649,71 @@ const AdminDashboard = () => {
                         className="w-full rounded-2xl border border-border bg-surface p-4 text-sm font-medium text-text focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                         required
                       ></textarea>
+                    </div>
+
+                    {/* Specifications Section */}
+                    <div className="space-y-3 pt-2">
+                      <div className="flex justify-between items-center border-b border-border/50 pb-2">
+                        <label className="text-xs font-bold text-text uppercase tracking-wider ml-1">Product Specifications</label>
+                        <button
+                          type="button"
+                          onClick={() => setProdSpecs([...prodSpecs, { key: "", value: "" }])}
+                          className="text-[11px] font-bold text-primary hover:text-primary-hover border border-primary/20 px-3 py-1.5 rounded-xl bg-primary/5 hover:bg-primary/10 transition-all flex items-center gap-1"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Row
+                        </button>
+                      </div>
+
+                      {prodSpecs.length === 0 ? (
+                        <p className="text-xs text-muted italic ml-1 py-1">No custom specifications added. Displays default specs.</p>
+                      ) : (
+                        <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1">
+                          {prodSpecs.map((spec, index) => (
+                            <div key={index} className="flex gap-2 items-center">
+                              <div className="flex-1">
+                                <Input
+                                  type="text"
+                                  placeholder="Specification Name (e.g. Weight)"
+                                  value={spec.key}
+                                  onChange={(e) => {
+                                    const newSpecs = [...prodSpecs];
+                                    newSpecs[index].key = e.target.value;
+                                    setProdSpecs(newSpecs);
+                                  }}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <Input
+                                  type="text"
+                                  placeholder="Value (e.g. 200g)"
+                                  value={spec.value}
+                                  onChange={(e) => {
+                                    const newSpecs = [...prodSpecs];
+                                    newSpecs[index].value = e.target.value;
+                                    setProdSpecs(newSpecs);
+                                  }}
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newSpecs = prodSpecs.filter((_, idx) => idx !== index);
+                                  setProdSpecs(newSpecs.length > 0 ? newSpecs : [{ key: "", value: "" }]);
+                                }}
+                                className="p-2.5 rounded-xl border border-error/20 bg-error/5 hover:bg-error/10 text-error transition-all"
+                                title="Remove Specification"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3">
