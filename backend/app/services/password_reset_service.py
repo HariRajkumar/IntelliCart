@@ -1,4 +1,4 @@
-import random
+import secrets
 from datetime import datetime, timedelta
 from fastapi import HTTPException, status
 
@@ -20,8 +20,8 @@ class PasswordResetService:
                 detail="Email address not registered"
             )
 
-        # Generate a 6-digit random code
-        otp_code = "".join([str(random.randint(0, 9)) for _ in range(6)])
+        # Generate a 6-digit secure random code
+        otp_code = "".join([secrets.choice("0123456789") for _ in range(6)])
         expiry_time = datetime.utcnow() + timedelta(
             minutes=settings.OTP_EXPIRY_MINUTES
         )

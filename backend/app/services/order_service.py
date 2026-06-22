@@ -84,49 +84,58 @@ class OrderService:
             )
 
         order_items = []
+        deducted_items = []
 
-        for item in cart.items:
+        try:
+            for item in cart.items:
 
-            product = await (
-                ProductRepository.get_product_by_id(
-                    item.product_id
-                )
-            )
-
-            if not product:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=(
-                        f"Product not found: "
-                        f"{item.name}"
+                product = await (
+                    ProductRepository.get_product_by_id(
+                        item.product_id
                     )
                 )
 
-            if product.stock < item.quantity:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=(
-                        f"Insufficient stock "
-                        f"for {item.name}"
+                if not product:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=(
+                            f"Product not found: "
+                            f"{item.name}"
+                        )
                     )
-                )
 
-            await (
-                ProductRepository.reduce_stock(
-                    product,
+                # Atomically reduce stock
+                success = await ProductRepository.reduce_stock(
+                    item.product_id,
                     item.quantity
                 )
-            )
 
-            order_items.append(
-                OrderItem(
-                    product_id=item.product_id,
-                    name=item.name,
-                    price=item.price,
-                    quantity=item.quantity,
-                    image=item.image
+                if not success:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=(
+                            f"Insufficient stock "
+                            f"for {item.name}"
+                        )
+                    )
+
+                # Keep track of successfully deducted items
+                deducted_items.append((item.product_id, item.quantity))
+
+                order_items.append(
+                    OrderItem(
+                        product_id=item.product_id,
+                        name=item.name,
+                        price=item.price,
+                        quantity=item.quantity,
+                        image=item.image
+                    )
                 )
-            )
+        except Exception as e:
+            # Programmatic Rollback: restore stock for already deducted items
+            for prod_id, qty in deducted_items:
+                await ProductRepository.restore_stock(prod_id, qty)
+            raise e
 
         order = await (
             OrderRepository.create_order(
@@ -258,21 +267,10 @@ class OrderService:
         ):
 
             for item in order.items:
-
-                product = await (
-                    ProductRepository.get_product_by_id(
-                        item.product_id
-                    )
+                await ProductRepository.restore_stock(
+                    item.product_id,
+                    item.quantity
                 )
-
-                if product:
-
-                    await (
-                        ProductRepository.restore_stock(
-                            product,
-                            item.quantity
-                        )
-                    )
 
         updated_order = await (
             OrderRepository.save_order(order)
@@ -333,9 +331,7 @@ class OrderService:
         order.status = OrderStatus.CANCELLED
 
         for item in order.items:
-            product = await ProductRepository.get_product_by_id(item.product_id)
-            if product:
-                await ProductRepository.restore_stock(product, item.quantity)
+            await ProductRepository.restore_stock(item.product_id, item.quantity)
 
         updated_order = await OrderRepository.save_order(order)
         return OrderService.serialize_order(updated_order)

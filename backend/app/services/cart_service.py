@@ -32,12 +32,6 @@ class CartService:
                 detail="Product not found"
             )
 
-        if product.stock < request.quantity:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Insufficient stock"
-            )
-
         cart = await (
             CartRepository.get_cart_by_user_id(
                 user_id
@@ -64,6 +58,16 @@ class CartService:
             ),
             None
         )
+
+        target_quantity = request.quantity
+        if existing_item:
+            target_quantity += existing_item.quantity
+
+        if product.stock < target_quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Insufficient stock"
+            )
 
         if existing_item:
 

@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -19,6 +20,9 @@ from app.db.database import connect_to_mongo, close_mongo_connection
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Starting IntelliCart API...")
+
+    # Ensure uploads folder exists so mounting static directories and uploads do not fail
+    os.makedirs("uploads/products", exist_ok=True)
 
     await connect_to_mongo()
 

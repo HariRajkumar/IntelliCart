@@ -1,4 +1,5 @@
 from typing import Optional
+from beanie import PydanticObjectId
 
 from app.models.product_model import Product
 
@@ -150,27 +151,37 @@ class ProductRepository:
     
     @staticmethod
     async def reduce_stock(
-        product: Product,
+        product_id: str,
         quantity: int
-    ):
+    ) -> bool:
+        # Atomically decrement the stock only if stock >= quantity and product is active
+        try:
+            p_id = PydanticObjectId(product_id)
+        except Exception:
+            return False
 
-        product.stock -= quantity
-
-        await product.save()
-
-        return product
+        result = await Product.find_one(
+            Product.id == p_id,
+            Product.stock >= quantity,
+            Product.is_active == True
+        ).update({"$inc": {"stock": -quantity}})
+        return result.modified_count > 0
     
     @staticmethod
     async def restore_stock(
-        product: Product,
+        product_id: str,
         quantity: int
-    ):
+    ) -> bool:
+        # Atomically increment stock
+        try:
+            p_id = PydanticObjectId(product_id)
+        except Exception:
+            return False
 
-        product.stock += quantity
-
-        await product.save()
-
-        return product
+        result = await Product.find_one(
+            Product.id == p_id
+        ).update({"$inc": {"stock": quantity}})
+        return result.modified_count > 0
     
     @staticmethod
     async def count_products(
