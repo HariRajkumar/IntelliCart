@@ -102,8 +102,11 @@ async def update_product(
 @router.delete("/{product_id}")
 async def delete_product(
     product_id: str,
+    hard_delete: bool = Query(False),
     current_user: User = Depends(admin_required)
 ):
+    if hard_delete:
+        return await ProductService.hard_delete_product(product_id)
 
     return await (
         ProductService.delete_product(

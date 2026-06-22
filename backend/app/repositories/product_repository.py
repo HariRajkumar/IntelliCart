@@ -184,6 +184,30 @@ class ProductRepository:
         return result.modified_count > 0
     
     @staticmethod
+    async def update_product_categories(
+        old_category_name: str,
+        new_category_name: str
+    ):
+        await Product.find(
+            Product.category == old_category_name
+        ).update({"$set": {"category": new_category_name}})
+
+    @staticmethod
+    async def reassign_category_to_uncategorized(
+        category_name: str
+    ):
+        await Product.find(
+            Product.category == category_name
+        ).update({"$set": {"category": "Uncategorized"}})
+
+    @staticmethod
+    async def hard_delete_product(
+        product: Product
+    ):
+        await product.delete()
+        return product
+    
+    @staticmethod
     async def count_products(
         category: str | None = None,
         search: str | None = None,

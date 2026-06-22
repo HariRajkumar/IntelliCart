@@ -14,6 +14,7 @@ from app.schemas.product_schema import (
 )
 from app.schemas.review_schema import ReviewCreate
 from app.models.review_model import Review
+from app.models.cart_model import Cart
 
 
 
@@ -162,6 +163,40 @@ class ProductService:
 
         return {
             "message": "Product deleted successfully"
+        }
+
+    @staticmethod
+    async def hard_delete_product(
+        product_id: str
+    ):
+
+        product = await (
+            ProductRepository.get_product_by_id(
+                product_id
+            )
+        )
+
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        # 1. Cascade Delete Reviews: remove all reviews for this product
+        await Review.find(Review.product_id == product_id).delete()
+
+        # 2. Cascade Delete CartItems: pull product from active carts and recompute total_price
+        carts = await Cart.find(Cart.items.product_id == product_id).to_list()
+        for cart in carts:
+            cart.items = [item for item in cart.items if item.product_id != product_id]
+            cart.total_price = sum(item.price * item.quantity for item in cart.items)
+            await cart.save()
+
+        # 3. Hard Delete Product document
+        await ProductRepository.hard_delete_product(product)
+
+        return {
+            "message": "Product and associated reviews/cart items hard-deleted successfully"
         }
 
     @staticmethod
