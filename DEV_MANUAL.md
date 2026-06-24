@@ -101,12 +101,14 @@ The product details view contains an interactive delivery estimation tool:
 
 ### E. Product Reviews & Aggregates
 - Authenticated users can write or update reviews (rating 1 to 5, comment, title).
-- When a review is created or updated, the backend recalculates and saves the product's aggregate fields:
+- **Verified Purchase Verification:** Review submission checks the user's order history. A review is marked as `verified_purchase: true` if the user has a non-cancelled order containing the product that has either been paid (`payment_status == "paid"`) or is an approved Cash on Delivery (COD) order.
+- **Verification Syncing:** Changes in order status (such as customer or admin cancellations) automatically trigger a background task (`reverify_user_review_for_product`) to synchronize and adjust review verification flags dynamically.
+- When a review is created, updated, or deleted, the backend recalculates and saves the product's aggregate fields:
   - `reviews_count` (total review count)
   - `rating` (mathematical average of reviews)
 
 ### F. Administrative Actions
-The Admin Dashboard contains four main management sections:
+The Admin Dashboard contains five main management sections:
 1. **User Role Management:** Lists users and allows toggling administrative privileges.
 2. **Category CRUD:** Standard controls to create, update, or delete categories.
 3. **Product CRUD:** Controls to create products, edit descriptions, adjust inventory levels, and upload images.
@@ -114,6 +116,11 @@ The Admin Dashboard contains four main management sections:
   - `pending` -> `processing` -> `shipped` -> `delivered`.
   - When status is updated to `cancelled`, backend triggers an automatic restore of product inventory quantities.
   - Status updates to `shipped`, `delivered`, and `cancelled` automatically dispatch logistics updates to customer email accounts.
+5. **Analytics Dashboard:** Visualizes overall storefront transactional and execution stats using interactive charts powered by Recharts (Area, Bar, and Doughnut charts) on the frontend:
+  - Displays daily sales and order trends over the trailing 30 days.
+  - Groups sales distribution and units sold by category.
+  - Displays top-selling products by quantity.
+  - Details order funnel states (pending, processing, shipped, delivered, cancelled) matching the backend aggregates served under the `GET /api/v1/orders/analytics` route.
 
 ---
 
@@ -127,11 +134,11 @@ At startup, `connect_to_mongo` runs a series of backfill migrations:
   - `discount` (Percentage calculation based on price vs MRP).
   - `rating` & `reviews_count` (Provides seeded defaults).
   - `seller_name` ("IntelliCart Central Hub") and `seller_postal_code` ("400001").
-- **Review Seeding:** Generates mock customer reviews for any products that have no reviews in order to populate UI elements.
+- **Mock Review Cleanup & Recalculation:** Deletes all legacy mock reviews (where `user_id` matches `^mock_`) and recalculates product ratings and review count statistics for all items in the database at startup.
 
 ---
 
 ## 5. Recommended Future Enhancements
 - **Message Queues:** Offload SMTP mail transmissions from background asyncio tasks to a dedicated message broker (e.g. Celery + Redis).
 - **Payment Processing:** Replace dummy credit card submission forms with standard integrations (Stripe, Razorpay API integrations).
-- **Analytics Dashboard:** Extend the admin dashboard with graphical sales logs and inventory warnings.
+- **AI-Powered Recommendations:** Implement personalized product recommendations using the reserved `ai-service/` directory.

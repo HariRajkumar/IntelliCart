@@ -4,12 +4,75 @@ IntelliCart is a full-stack e-commerce demo application with a FastAPI backend, 
 
 ## Project Structure
 
-- `backend/` — FastAPI API server, MongoDB (Motor + Beanie) integration, authentication with JWT & OTP email verification, product reviews, cart management, checkout with programmatic stock rollback, order tracking, and email logistics.
-- `frontend/` — React/Vite app powered by Tailwind CSS, featuring product catalog filtering, interactive cart, coupon discounts, secure profile and address management, search & sort options, product reviews with ratings, and a comprehensive admin panel.
-- `docker-compose.yml` — Multi-container containerized stack orchestration for local development (FastAPI backend, React frontend, MongoDB database, and Nginx proxy).
-- `nginx/` — Reverse-proxy configuration assets for unified routing.
+- `backend/` — FastAPI API server, MongoDB (Motor + Beanie) integration, authentication with JWT & OTP email verification, product reviews with verified purchase logic, cart management, checkout with programmatic stock rollback, analytics aggregation APIs, order tracking, and email logistics.
+- `frontend/` — React/Vite app powered by Tailwind CSS, featuring product catalog filtering, interactive cart, coupon discounts, secure profile and address management (with auto-selecting new address flows), search & sort options, product reviews with ratings & verified badges, and a comprehensive admin panel with interactive Recharts analytics graphs.
+- `docker-compose.yml` — Multi-container containerized stack orchestration for local development (FastAPI backend, React frontend, and MongoDB database).
+- `nginx/` — Reverse-proxy configuration assets for unified routing (reserved).
 - `ai-service/` — Directory reserved for optional machine learning and recommendations services.
 - `DEV_MANUAL.md` — Detailed technical developer manual explaining page flows, authentication lifecycles, database migrations, and schema/service architectures.
+
+---
+
+## System Architecture
+
+```mermaid
+graph TD
+    %% Styling
+    classDef client fill:#eef2f7,stroke:#3b82f6,stroke-width:2px;
+    classDef server fill:#fcf8f2,stroke:#f59e0b,stroke-width:2px;
+    classDef db fill:#ecfdf5,stroke:#10b981,stroke-width:2px;
+    classDef mail fill:#fff5f5,stroke:#ef4444,stroke-width:2px;
+
+    %% Nodes
+    subgraph Frontend [React Frontend - Vite & Tailwind]
+        UI[User Interface & Pages]:::client
+        AC[Auth Context & Guards]:::client
+        AX[Axios Client with Interceptors]:::client
+        RC[Recharts Analytics Dash]:::client
+    end
+
+    subgraph Backend [FastAPI Backend]
+        API[API Endpoints / Routing]:::server
+        AUTH[Auth & OTP Services]:::server
+        PROD[Product & Reviews Services]:::server
+        ORD[Cart & Order Services]:::server
+        MAIL[SMTP Email Engine]:::mail
+    end
+
+    subgraph Database [Storage]
+        MDB[(MongoDB Database)]:::db
+    end
+
+    %% Flow lines
+    UI --> AC
+    UI --> RC
+    AC --> AX
+    RC --> AX
+    
+    AX -- REST API (JSON) --> API
+    
+    API --> AUTH
+    API --> PROD
+    API --> ORD
+    
+    AUTH --> MDB
+    PROD --> MDB
+    ORD --> MDB
+    
+    AUTH --> MAIL
+    ORD --> MAIL
+    
+    %% Diagram layout adjustments
+    class UI,AC,AX,RC client;
+    class API,AUTH,PROD,ORD server;
+    class MDB db;
+    class MAIL mail;
+```
+
+IntelliCart implements a clean 3-tier architecture:
+1. **Client Tier:** React 18 frontend powered by Vite and Tailwind CSS. Employs `recharts` for interactive admin metrics and dashboards, and custom context state guards.
+2. **Application Tier:** Python-based FastAPI server exposing standard REST routes protected by JWT authorization and admin roles.
+3. **Data Tier:** MongoDB database coupled with Motor and the Beanie Object Document Mapper (ODM) for object models and transactional queries.
 
 ---
 
@@ -99,3 +162,5 @@ For fast testing of the application's functionality, the database is seeded auto
 - **CORS Protection:** The FastAPI backend is configured to accept requests from the frontend client origin (`http://localhost:5173`).
 - **Axios Interceptor:** Intercepts `401 Unauthorized` responses and fires global events to handle session expiration (logging users out and redirecting to login).
 - **Programmatic Rollback:** Order checkouts verify product inventory and deduct stock atomically. If any item is out of stock, a programmatic rollback restores previously reserved inventory items.
+- **Verified Purchase Reviews:** Submitting reviews requires checking order history. Validated purchases are marked on the database document and rendered with a badge in the UI. If a verified order is subsequently updated or cancelled, a synchronizer (`reverify_user_review_for_product`) updates review verification status.
+- **Admin Dashboard Analytics:** Aggregates store performance data (revenue timeline, categories share, best sellers, funnel statistics) via MongoDB aggregation pipelines. Visualized using animated Recharts components.
