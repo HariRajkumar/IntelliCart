@@ -773,7 +773,7 @@ const ProductDetail = () => {
                           <span className="text-xs font-bold text-text block">{rev.user_name}</span>
                           <p className="text-[10px] text-muted font-semibold">
                             {new Date(rev.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
-                            {rev.user_id && !rev.user_id.startsWith("mock_") && (
+                            {rev.verified_purchase && (
                               <span className="text-success font-bold ml-2">✓ Verified Purchase</span>
                             )}
                           </p>

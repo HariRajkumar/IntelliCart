@@ -15,6 +15,8 @@ from app.schemas.product_schema import (
 from app.schemas.review_schema import ReviewCreate
 from app.models.review_model import Review
 from app.models.cart_model import Cart
+from app.models.order_model import Order
+from app.core.order_status import OrderStatus
 
 
 
@@ -347,6 +349,7 @@ class ProductService:
                 "rating": r.rating,
                 "title": r.title,
                 "comment": r.comment,
+                "verified_purchase": getattr(r, "verified_purchase", False),
                 "created_at": r.created_at,
             }
             for r in reviews
@@ -367,6 +370,21 @@ class ProductService:
                 detail="Product not found"
             )
 
+        # Check if the user has bought the product (order is not cancelled, paid or COD and confirmed)
+        orders = await Order.find(
+            Order.user_id == user_id,
+            Order.status != OrderStatus.CANCELLED,
+            Order.items.product_id == product_id
+        ).to_list()
+
+        verified_purchase = False
+        for order in orders:
+            p_status = getattr(order, "payment_status", "pending")
+            p_method = getattr(order, "payment_method", None)
+            if p_status == "paid" or (p_method == "COD" and order.status != OrderStatus.PENDING):
+                verified_purchase = True
+                break
+
         # Upsert: find existing review by this real user (skip mock users)
         existing = await Review.find_one(
             Review.product_id == product_id,
@@ -378,6 +396,7 @@ class ProductService:
             existing.rating = data.rating
             existing.title = data.title
             existing.comment = data.comment
+            existing.verified_purchase = verified_purchase
             existing.updated_at = now
             await existing.save()
             saved = existing
@@ -389,6 +408,7 @@ class ProductService:
                 rating=data.rating,
                 title=data.title,
                 comment=data.comment,
+                verified_purchase=verified_purchase,
                 created_at=now,
                 updated_at=now,
             )
@@ -402,7 +422,7 @@ class ProductService:
         product.reviews_count = len(all_reviews)
         product.rating = round(
             sum(r.rating for r in all_reviews) / len(all_reviews), 2
-        )
+        ) if len(all_reviews) > 0 else 0.0
         await product.save()
 
         return {
@@ -413,5 +433,6 @@ class ProductService:
             "rating": saved.rating,
             "title": saved.title,
             "comment": saved.comment,
+            "verified_purchase": saved.verified_purchase,
             "created_at": saved.created_at,
         }

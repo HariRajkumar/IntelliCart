@@ -26,6 +26,10 @@ class Review(Document):
         min_length=2
     )
 
+    verified_purchase: bool = Field(
+        default=False
+    )
+
     created_at: datetime = Field(
         default_factory=datetime.utcnow
     )

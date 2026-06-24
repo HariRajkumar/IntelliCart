@@ -276,6 +276,10 @@ class OrderService:
             OrderRepository.save_order(order)
         )
 
+        # Re-verify reviews for this order
+        for item in order.items:
+            await OrderService.reverify_user_review_for_product(order.user_id, item.product_id)
+
         # ---------------------------------------------------------------
         # Send logistics update email when status changes to a key state
         # ---------------------------------------------------------------
@@ -334,4 +338,41 @@ class OrderService:
             await ProductRepository.restore_stock(item.product_id, item.quantity)
 
         updated_order = await OrderRepository.save_order(order)
+
+        # Re-verify reviews for this order
+        for item in order.items:
+            await OrderService.reverify_user_review_for_product(order.user_id, item.product_id)
+
         return OrderService.serialize_order(updated_order)
+
+    @staticmethod
+    async def reverify_user_review_for_product(user_id: str, product_id: str):
+        from app.models.review_model import Review
+        from app.models.order_model import Order
+        
+        # Find if the user has a review for this product
+        review = await Review.find_one(
+            Review.product_id == product_id,
+            Review.user_id == user_id
+        )
+        if not review:
+            return
+            
+        # Re-evaluate verified purchase status
+        orders = await Order.find(
+            Order.user_id == user_id,
+            Order.status != OrderStatus.CANCELLED,
+            Order.items.product_id == product_id
+        ).to_list()
+        
+        verified = False
+        for o in orders:
+            p_status = getattr(o, "payment_status", "pending")
+            p_method = getattr(o, "payment_method", None)
+            if p_status == "paid" or (p_method == "COD" and o.status != OrderStatus.PENDING):
+                verified = True
+                break
+                
+        if review.verified_purchase != verified:
+            review.verified_purchase = verified
+            await review.save()

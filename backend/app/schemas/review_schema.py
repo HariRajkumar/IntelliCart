@@ -38,4 +38,6 @@ class ReviewResponse(BaseModel):
 
     comment: str
 
+    verified_purchase: bool
+
     created_at: datetime

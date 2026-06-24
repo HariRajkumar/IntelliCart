@@ -160,21 +160,33 @@ const Checkout = () => {
     };
 
     try {
-      let savedAddress = null;
+      let selectedAddress = null;
       if (saveToProfile) {
-        savedAddress = await addUserAddress(addressPayload);
+        const updatedAddresses = await addUserAddress(addressPayload);
         toast.success("Address added to your profile!");
+        setAddresses(updatedAddresses);
+        
+        // Find the newly added address in the updated list
+        selectedAddress = updatedAddresses.find(
+          (addr) =>
+            addr.address_line === addressPayload.address_line &&
+            addr.city === addressPayload.city &&
+            addr.state === addressPayload.state &&
+            addr.postal_code === addressPayload.postal_code
+        ) || updatedAddresses[updatedAddresses.length - 1];
       } else {
         // Mock a non-saved temporary address
-        savedAddress = {
+        selectedAddress = {
           ...addressPayload,
           id: "temp_" + Math.random().toString(36).substring(2, 9),
         };
+        setAddresses((prev) => [...prev, selectedAddress]);
       }
 
-      setAddresses((prev) => [...prev, savedAddress]);
-      setSelectedAddressId(savedAddress.id);
-      fetchDeliveryEstimates(cart, savedAddress.postal_code);
+      if (selectedAddress) {
+        setSelectedAddressId(selectedAddress.id);
+        fetchDeliveryEstimates(cart, selectedAddress.postal_code);
+      }
       setShowNewAddressForm(false);
       
       // Clear inputs

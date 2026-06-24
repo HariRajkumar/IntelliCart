@@ -9,19 +9,7 @@ import { addToCart } from "../services/cartService";
 import { getErrorMessage } from "../utils/errorHandler";
 
 const ProductCard = ({ product }) => {
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
-
-  const handleWishlist = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsWishlisted(!isWishlisted);
-    if (!isWishlisted) {
-      toast.success("Added to wishlist");
-    } else {
-      toast.success("Removed from wishlist");
-    }
-  };
 
   const handleQuickAdd = async (e) => {
     e.preventDefault();
@@ -49,29 +37,6 @@ const ProductCard = ({ product }) => {
   return (
     <Link to={`/products/${product.id}`} className="group block h-full">
       <Card className="flex flex-col h-full p-4 relative overflow-hidden bg-surface hover:shadow-hover-card hover:-translate-y-1.5 transition-all duration-300 border border-border/50 rounded-2xl">
-        
-        {/* Wishlist Heart Icon */}
-        <button
-          onClick={handleWishlist}
-          className="absolute top-3 right-3 z-10 p-2 rounded-full bg-surface/90 hover:bg-surface border border-border/40 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none"
-        >
-          <svg
-            className={`w-4.5 h-4.5 transition-colors duration-200 ${
-              isWishlisted
-                ? "text-error fill-error"
-                : "text-muted hover:text-error fill-none"
-            }`}
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth="2.5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-            />
-          </svg>
-        </button>
 
         {/* Product Image Section */}
         <div className="relative w-full h-48 rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center">

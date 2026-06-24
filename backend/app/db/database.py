@@ -70,17 +70,7 @@ async def connect_to_mongo():
                 p.discount = round(((p.mrp - p.price) / p.mrp) * 100, 1)
                 needs_save = True
 
-            if getattr(p, "rating", 0.0) == 0.0:
-                # Stable rating calculation based on product name
-                name_sum = sum(ord(c) for c in p.name)
-                rating_val = round(4.0 + (name_sum % 10) / 10, 1)
-                p.rating = min(5.0, max(1.0, rating_val))
-                needs_save = True
 
-            if getattr(p, "reviews_count", 0) == 0:
-                name_sum = sum(ord(c) for c in p.name)
-                p.reviews_count = (name_sum % 230) + 15
-                needs_save = True
 
             # Backfill multiple images for Keyboard and Laptop
             pid_str = str(p.id)
@@ -121,63 +111,31 @@ async def connect_to_mongo():
         print(f"Failed to backfill products: {e}")
 
 
-    # Seed mock reviews for products that have no reviews yet
+    # Cleanup mock reviews and update product ratings/reviews_count
     try:
-        from datetime import datetime, timedelta
-        mock_reviews_data = [
-            {
-                "user_id": "mock_user_1",
-                "user_name": "Rajesh Kumar",
-                "rating": 5,
-                "title": "Absolutely worth the price!",
-                "comment": "Build quality is top notch. Visual styles are premium and feel extremely tactile. Highly recommend purchasing this if you are a coder or developer.",
-                "days_ago": 6
-            },
-            {
-                "user_id": "mock_user_2",
-                "user_name": "Siddharth S.",
-                "rating": 4,
-                "title": "Great product, solid construction",
-                "comment": "Exceeded my expectations. Packaging was safe, and shipping was prompt. Very premium feel. Only minor issue is the cord layout could be a bit cleaner.",
-                "days_ago": 21
-            },
-            {
-                "user_id": "mock_user_3",
-                "user_name": "Nisha J.",
-                "rating": 4,
-                "title": "Decent performance, very pretty",
-                "comment": "Looks exactly like the product photos. Color scheme and aesthetics fit my room setup perfectly. Smooth interactions.",
-                "days_ago": 45
-            },
-        ]
-        all_products = await Product.find_all().to_list()
-        seeded_review_count = 0
-        for p in all_products:
-            existing_count = await Review.find(Review.product_id == str(p.id)).count()
-            if existing_count == 0:
-                for mock in mock_reviews_data:
-                    review_ts = datetime.utcnow() - timedelta(days=mock["days_ago"])
-                    rev = Review(
-                        product_id=str(p.id),
-                        user_id=mock["user_id"],
-                        user_name=mock["user_name"],
-                        rating=mock["rating"],
-                        title=mock["title"],
-                        comment=mock["comment"],
-                        created_at=review_ts,
-                        updated_at=review_ts,
-                    )
-                    await rev.insert()
-                    seeded_review_count += 1
-                # Recalculate aggregates from seeded reviews
-                all_reviews = await Review.find(Review.product_id == str(p.id)).to_list()
-                p.reviews_count = len(all_reviews)
-                p.rating = round(sum(r.rating for r in all_reviews) / len(all_reviews), 2)
+        # 1. Delete all mock reviews (user_id starting with 'mock_')
+        delete_result = await Review.find({"user_id": {"$regex": "^mock_"}}).delete()
+        if delete_result.deleted_count > 0:
+            print(f"Cleanup migration: deleted {delete_result.deleted_count} mock reviews.")
+
+        # 2. Recalculate ratings and counts for all products
+        products = await Product.find_all().to_list()
+        recalculated_count = 0
+        for p in products:
+            all_reviews = await Review.find(Review.product_id == str(p.id)).to_list()
+            new_count = len(all_reviews)
+            new_rating = round(sum(r.rating for r in all_reviews) / new_count, 2) if new_count > 0 else 0.0
+            
+            if p.reviews_count != new_count or p.rating != new_rating:
+                p.reviews_count = new_count
+                p.rating = new_rating
                 await p.save()
-        if seeded_review_count > 0:
-            print(f"Seeded {seeded_review_count} mock reviews across {len(all_products)} products.")
+                recalculated_count += 1
+
+        if recalculated_count > 0:
+            print(f"Cleanup migration: recalculated reviews for {recalculated_count} products.")
     except Exception as e:
-        print(f"Failed to seed mock reviews: {e}")
+        print(f"Failed during mock review cleanup migration: {e}")
 
 
 async def close_mongo_connection():
