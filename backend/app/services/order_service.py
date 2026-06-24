@@ -207,6 +207,94 @@ class OrderService:
         ]
 
     @staticmethod
+    async def get_analytics_data():
+        from app.models.product_model import Product
+        from app.models.order_model import Order
+        from collections import defaultdict
+        from datetime import datetime, timedelta
+
+        orders = await Order.find_all().to_list()
+        products = await Product.find_all().to_list()
+
+        prod_category_map = {str(p.id): p.category for p in products}
+        prod_name_map = {str(p.id): p.name for p in products}
+
+        # 30 days daily stats
+        today = datetime.utcnow().date()
+        date_list = [today - timedelta(days=i) for i in range(29, -1, -1)]
+        daily_stats = {d.isoformat(): {"date": d.isoformat(), "revenue": 0.0, "orders": 0} for d in date_list}
+
+        category_sales = defaultdict(lambda: {"revenue": 0.0, "units_sold": 0})
+        status_distribution = defaultdict(int)
+        product_sales = defaultdict(lambda: {"name": "Unknown", "revenue": 0.0, "units_sold": 0})
+
+        for order in orders:
+            status_val = order.status.value if hasattr(order.status, "value") else str(order.status)
+            status_distribution[status_val] += 1
+
+            if order.status == OrderStatus.CANCELLED:
+                continue
+
+            order_date = order.created_at.date()
+            date_str = order_date.isoformat()
+            if date_str in daily_stats:
+                daily_stats[date_str]["revenue"] += order.total_price
+                daily_stats[date_str]["orders"] += 1
+
+            for item in order.items:
+                p_id = str(item.product_id)
+                qty = item.quantity
+                item_revenue = item.price * qty
+
+                cat = prod_category_map.get(p_id, "Uncategorized")
+                category_sales[cat]["revenue"] += item_revenue
+                category_sales[cat]["units_sold"] += qty
+
+                p_name = item.name or prod_name_map.get(p_id, "Unknown Product")
+                product_sales[p_id]["name"] = p_name
+                product_sales[p_id]["revenue"] += item_revenue
+                product_sales[p_id]["units_sold"] += qty
+
+        daily_revenue_list = list(daily_stats.values())
+
+        category_breakdown_list = [
+            {"category": cat, "revenue": data["revenue"], "units_sold": data["units_sold"]}
+            for cat, data in category_sales.items()
+        ]
+
+        status_distribution_list = [
+            {"status": status, "count": count}
+            for status, count in status_distribution.items()
+        ]
+
+        top_products_list = sorted(
+            [
+                {"id": p_id, "name": data["name"], "revenue": data["revenue"], "units_sold": data["units_sold"]}
+                for p_id, data in product_sales.items()
+            ],
+            key=lambda x: x["units_sold"],
+            reverse=True
+        )[:5]
+
+        active_products_count = sum(1 for p in products if p.is_active)
+        total_orders_count = len(orders)
+        categories_count = len(category_sales.keys()) or len(set(prod_category_map.values()))
+        total_revenue = sum(o.total_price for o in orders if o.status != OrderStatus.CANCELLED)
+
+        return {
+            "summary": {
+                "total_revenue": total_revenue,
+                "active_products_count": active_products_count,
+                "total_orders_count": total_orders_count,
+                "categories_count": categories_count,
+            },
+            "daily_revenue": daily_revenue_list,
+            "category_sales": category_breakdown_list,
+            "status_distribution": status_distribution_list,
+            "top_products": top_products_list,
+        }
+
+    @staticmethod
     def serialize_order(order):
 
         return {

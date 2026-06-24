@@ -44,6 +44,13 @@ async def get_my_orders(
     )
 
 
+@router.get("/analytics")
+async def get_analytics_data(
+    current_user: User = Depends(admin_required)
+):
+    return await OrderService.get_analytics_data()
+
+
 @router.get("/")
 async def get_all_orders(
     current_user: User = Depends(admin_required)

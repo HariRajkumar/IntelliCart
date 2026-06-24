@@ -13,8 +13,32 @@ import {
   deleteProduct,
   uploadProductImage,
 } from "../services/productService";
-import { getAllOrders, updateOrderStatus } from "../services/orderService";
+import { getAllOrders, updateOrderStatus, getAnalyticsData } from "../services/orderService";
 import { getErrorMessage } from "../utils/errorHandler";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from "recharts";
+
+const COLORS = ["#4f46e5", "#10b981", "#f59e0b", "#ef4444", "#38bdf8", "#d946ef", "#6366f1"];
+const STATUS_COLORS = {
+  pending: "#f59e0b",
+  processing: "#6366f1",
+  shipped: "#38bdf8",
+  out_for_delivery: "#4f46e5",
+  delivered: "#10b981",
+  cancelled: "#ef4444"
+};
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview"); // overview, products, categories, orders
@@ -54,6 +78,8 @@ const AdminDashboard = () => {
     categoriesCount: 0,
   });
 
+  const [analyticsData, setAnalyticsData] = useState(null);
+
   useEffect(() => {
     loadAllAdminData();
   }, []);
@@ -61,17 +87,28 @@ const AdminDashboard = () => {
   const loadAllAdminData = async () => {
     try {
       setLoading(true);
-      const [catsData, prodsData, ordersData] = await Promise.all([
+      const [catsData, prodsData, ordersData, analyticsRes] = await Promise.all([
         getCategories(),
         getProducts({ limit: 100 }), // Load a larger list for admin view
         getAllOrders(),
+        getAnalyticsData(),
       ]);
 
       setCategories(catsData);
       setProducts(prodsData.items || []);
       setOrders(ordersData || []);
+      setAnalyticsData(analyticsRes);
 
-      calculateStats(prodsData.items || [], ordersData || [], catsData);
+      if (analyticsRes && analyticsRes.summary) {
+        setStats({
+          totalRevenue: analyticsRes.summary.total_revenue,
+          activeProductsCount: analyticsRes.summary.active_products_count,
+          totalOrdersCount: analyticsRes.summary.total_orders_count,
+          categoriesCount: analyticsRes.summary.categories_count,
+        });
+      } else {
+        calculateStats(prodsData.items || [], ordersData || [], catsData);
+      }
     } catch (err) {
       console.error(err);
       toast.error("Failed to load dashboard data");
@@ -358,6 +395,239 @@ const AdminDashboard = () => {
             {/* OVERVIEW TAB */}
             {activeTab === "overview" && (
               <div className="space-y-8">
+                {analyticsData && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Daily Revenue trend (Line/Area Chart) */}
+                    <Card className="p-6 bg-surface border border-border/50 shadow-premium lg:col-span-2 text-left">
+                      <div className="pb-4 border-b border-border/60 mb-6 flex justify-between items-center">
+                        <div>
+                          <h3 className="text-lg font-bold text-text">Sales Trend</h3>
+                          <p className="text-xs text-muted mt-1">Daily revenue generated over the last 30 days.</p>
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-primary bg-primary/5 px-3 py-1.5 rounded-xl border border-primary/10">
+                            Last 30 Days
+                          </span>
+                        </div>
+                      </div>
+                      <div className="h-72 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart
+                            data={analyticsData.daily_revenue}
+                            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                          >
+                            <defs>
+                              <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.2}/>
+                                <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                            <XAxis
+                              dataKey="date"
+                              tickFormatter={(str) => {
+                                try {
+                                  const date = new Date(str);
+                                  return date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+                                } catch (e) {
+                                  return str;
+                                }
+                              }}
+                              stroke="#6b7280"
+                              fontSize={10}
+                              tickLine={false}
+                            />
+                            <YAxis
+                              stroke="#6b7280"
+                              fontSize={10}
+                              tickLine={false}
+                              axisLine={false}
+                              tickFormatter={(val) => `₹${val}`}
+                            />
+                            <Tooltip
+                              formatter={(value) => [`₹${value.toLocaleString()}`, "Revenue"]}
+                              labelFormatter={(label) => {
+                                try {
+                                  return new Date(label).toLocaleDateString("en-IN", { dateStyle: "long" });
+                                } catch (e) {
+                                  return label;
+                                }
+                              }}
+                              contentStyle={{
+                                backgroundColor: "#ffffff",
+                                borderRadius: "1rem",
+                                border: "1px solid #e2e8f0",
+                                boxShadow: "0 10px 30px -15px rgba(0, 0, 0, 0.05)",
+                                fontSize: "12px",
+                                color: "#0f172a"
+                              }}
+                            />
+                            <Area
+                              type="monotone"
+                              dataKey="revenue"
+                              stroke="#4f46e5"
+                              strokeWidth={3}
+                              fillOpacity={1}
+                              fill="url(#colorRevenue)"
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+
+                    {/* Category Sales Doughnut Chart */}
+                    <Card className="p-6 bg-surface border border-border/50 shadow-premium text-left">
+                      <div className="pb-4 border-b border-border/60 mb-6">
+                        <h3 className="text-lg font-bold text-text">Category Distribution</h3>
+                        <p className="text-xs text-muted mt-1">Revenue split across product categories.</p>
+                      </div>
+                      <div className="h-64 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="h-full w-full sm:w-1/2 relative flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={analyticsData.category_sales}
+                                dataKey="revenue"
+                                nameKey="category"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={4}
+                              >
+                                {analyticsData.category_sales.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(value) => `₹${value.toLocaleString()}`}
+                                contentStyle={{
+                                  backgroundColor: "#ffffff",
+                                  borderRadius: "1rem",
+                                  border: "1px solid #e2e8f0",
+                                  fontSize: "12px"
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          {/* Center Text */}
+                          <div className="absolute text-center">
+                            <span className="text-[10px] uppercase font-bold text-muted tracking-wider block">Sales Share</span>
+                            <span className="text-xs font-semibold text-text">Categories</span>
+                          </div>
+                        </div>
+                        <div className="w-full sm:w-1/2 flex flex-col gap-2 max-h-[220px] overflow-y-auto pr-2">
+                          {analyticsData.category_sales.map((entry, index) => (
+                            <div key={entry.category} className="flex items-center justify-between text-xs font-semibold">
+                              <div className="flex items-center gap-2">
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                <span className="text-text truncate max-w-[90px]">{entry.category}</span>
+                              </div>
+                              <span className="text-muted">₹{entry.revenue.toLocaleString()}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </Card>
+
+                    {/* Top Selling Products Bar Chart */}
+                    <Card className="p-6 bg-surface border border-border/50 shadow-premium text-left">
+                      <div className="pb-4 border-b border-border/60 mb-6">
+                        <h3 className="text-lg font-bold text-text">Top-Selling Products</h3>
+                        <p className="text-xs text-muted mt-1">Best performing items by quantity sold.</p>
+                      </div>
+                      <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart
+                            data={analyticsData.top_products}
+                            layout="vertical"
+                            margin={{ top: 10, right: 10, left: 10, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                            <XAxis type="number" stroke="#6b7280" fontSize={10} tickLine={false} />
+                            <YAxis
+                              dataKey="name"
+                              type="category"
+                              stroke="#6b7280"
+                              fontSize={9}
+                              width={90}
+                              tickLine={false}
+                              axisLine={false}
+                              tickFormatter={(str) => (str.length > 15 ? `${str.slice(0, 15)}...` : str)}
+                            />
+                            <Tooltip
+                              formatter={(value, name) => [value, name === "units_sold" ? "Units Sold" : "Revenue (₹)"]}
+                              contentStyle={{
+                                backgroundColor: "#ffffff",
+                                borderRadius: "1rem",
+                                border: "1px solid #e2e8f0",
+                                fontSize: "12px"
+                              }}
+                            />
+                            <Bar dataKey="units_sold" fill="#6366f1" radius={[0, 8, 8, 0]} maxBarSize={20}>
+                              {analyticsData.top_products.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[(index + 1) % COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </Card>
+
+                    {/* Order Status Distribution Chart */}
+                    <Card className="p-6 bg-surface border border-border/50 shadow-premium lg:col-span-2 text-left">
+                      <div className="pb-4 border-b border-border/60 mb-6">
+                        <h3 className="text-lg font-bold text-text">Order Status Distribution</h3>
+                        <p className="text-xs text-muted mt-1">Fulfillment funnel breakdown for all transactions.</p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
+                        <div className="h-48 relative flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={analyticsData.status_distribution}
+                                dataKey="count"
+                                nameKey="status"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={50}
+                                outerRadius={70}
+                                paddingAngle={3}
+                              >
+                                {analyticsData.status_distribution.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.status] || "#cbd5e1"} />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                formatter={(value) => [`${value} Orders`, "Count"]}
+                                contentStyle={{
+                                  backgroundColor: "#ffffff",
+                                  borderRadius: "1rem",
+                                  border: "1px solid #e2e8f0",
+                                  fontSize: "12px"
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {analyticsData.status_distribution.map((entry) => (
+                            <div key={entry.status} className="p-3.5 rounded-2xl border border-border/60 bg-slate-50 flex flex-col justify-between">
+                              <div className="flex items-center gap-1.5 font-bold">
+                                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLORS[entry.status] || "#cbd5e1" }} />
+                                <span className="text-[10px] font-black uppercase text-muted tracking-wider truncate">
+                                  {entry.status.replace("_", " ")}
+                                </span>
+                              </div>
+                              <span className="text-xl font-black text-text mt-1.5 block">{entry.count} Orders</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </Card>
+                  </div>
+                )}
+
                 {/* Recent Transactions List */}
                 <div className="bg-surface rounded-3xl border border-border/50 p-6 sm:p-8 shadow-premium">
                   <div className="pb-4 border-b border-border/60 mb-6">
