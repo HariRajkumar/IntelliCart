@@ -14,6 +14,7 @@ import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
 import Checkout from "./pages/Checkout";
+import Chatbot from "./pages/Chatbot";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminRoute from "./components/AdminRoute";
@@ -130,6 +131,13 @@ function App() {
             <ProtectedRoute>
               <Checkout />
             </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/chatbot"
+          element={
+            <Chatbot />
           }
         />
 
