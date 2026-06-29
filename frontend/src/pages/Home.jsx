@@ -1,10 +1,12 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import { getProducts } from "../services/productService";
 import { getCategories } from "../services/categoryService";
+import AuthContext from "../context/AuthContext";
+import { sendMessage, getChatHistory, clearChatHistory } from "../services/chatService";
 
 const HERO_SLIDES = [
   {
@@ -106,6 +108,8 @@ const Home = () => {
   const [currentHeroSlide, setCurrentHeroSlide] = useState(0);
   const [selectedProductTab, setSelectedProductTab] = useState("All");
 
+  const { isAuthenticated, user } = useContext(AuthContext);
+
   // Bot states
   const [botMessages, setBotMessages] = useState([
     {
@@ -164,10 +168,105 @@ const Home = () => {
     return () => clearInterval(timer);
   }, []);
 
+  // Fetch Chat History if Authenticated
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (isAuthenticated) {
+        try {
+          const history = await getChatHistory();
+          if (history && history.length > 0) {
+            setBotMessages(
+              history.map((msg) => ({
+                sender: msg.role === "user" ? "user" : "bot",
+                text: msg.content,
+              }))
+            );
+          }
+        } catch (err) {
+          console.error("Failed to load chat history:", err);
+        }
+      }
+    };
+    fetchHistory();
+  }, [isAuthenticated]);
+
   // Scroll bot conversation
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [botMessages, botLoading]);
+
+  // Basic Markdown parser for chatbot responses
+  const parseMarkdown = (text) => {
+    if (!text) return "";
+    let html = text;
+
+    // Escape basic HTML tag indicators to prevent injection
+    html = html
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+
+    // Bold **text** -> <strong>text</strong>
+    html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+    // Bullet points * item -> <li>item</li>
+    html = html.replace(/^\*\s+(.*?)$/gm, "<li>$1</li>");
+    html = html.replace(/(<li>.*?<\/li>)+/gs, "<ul>$&</ul>");
+
+    // Headings ### title -> <h3 class="text-base font-extrabold mt-3 mb-1 text-white">title</h3>
+    html = html.replace(/^###\s+(.*?)$/gm, '<h3 class="text-base font-extrabold mt-3 mb-1 text-white">$1</h3>');
+    html = html.replace(/^####\s+(.*?)$/gm, '<h4 class="text-sm font-bold mt-2 mb-1 text-slate-200">$1</h4>');
+
+    // Tables parsing:
+    // | Col 1 | Col 2 |
+    // | --- | --- |
+    // | Val 1 | Val 2 |
+    const lines = html.split("\n");
+    let inTable = false;
+    let tableHtml = "";
+    let newLines = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith("|") && line.endsWith("|")) {
+        if (!inTable) {
+          inTable = true;
+          tableHtml = '<div class="overflow-x-auto my-3"><table class="min-w-full text-[10px] text-left border-collapse border border-slate-800 bg-slate-950/80 rounded-lg overflow-hidden">';
+        }
+        
+        const cells = line.split("|").slice(1, -1).map(c => c.trim());
+        
+        if (line.includes("---") || line.includes("===")) {
+          continue;
+        }
+        
+        if (tableHtml.includes("<thead>")) {
+          tableHtml += '<tr>' + cells.map(c => `<td class="border border-slate-800 p-1.5 text-slate-300">${c}</td>`).join('') + '</tr>';
+        } else {
+          tableHtml += '<thead class="bg-slate-900 font-bold text-slate-200"><tr>' + cells.map(c => `<th class="border border-slate-800 p-1.5 text-white">${c}</th>`).join('') + '</tr></thead><tbody>';
+        }
+      } else {
+        if (inTable) {
+          inTable = false;
+          tableHtml += "</tbody></table></div>";
+          newLines.push(tableHtml);
+          tableHtml = "";
+        }
+        newLines.push(line);
+      }
+    }
+    if (inTable) {
+      tableHtml += "</tbody></table></div>";
+      newLines.push(tableHtml);
+    }
+
+    html = newLines.join("\n");
+    
+    // Paragraphs double newlines
+    html = html.replace(/\n\n/g, "</p><p class='mt-2 text-slate-300'>");
+    
+    return `<p class='text-slate-300'>${html}</p>`;
+  };
 
   // Bot Submit Handler
   const handleBotSubmit = async (e) => {
@@ -180,47 +279,43 @@ const Home = () => {
     setBotLoading(true);
 
     try {
-      const data = await getProducts({ search: userQuery, limit: 3 });
-      
-      setTimeout(() => {
-        setBotLoading(false);
-        if (data.items && data.items.length > 0) {
-          setBotMessages((prev) => [
-            ...prev,
-            {
-              sender: "bot",
-              text: `I've scanned IntelliCart database and found ${data.items.length} great match(es) for "${userQuery}":`,
-              products: data.items,
-            }
-          ]);
-        } else {
-          setBotMessages((prev) => [
-            ...prev,
-            {
-              sender: "bot",
-              text: `I couldn't find any products matching "${userQuery}" directly. Here are some terms you could try: "Keyboard", "Laptop", "Smartphone", "T-Shirt", or "Book".`,
-              suggestions: ["Keyboard", "Laptop", "Smartphone", "T-Shirt", "Book"]
-            }
-          ]);
+      const data = await sendMessage(userQuery);
+      setBotMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: data.response,
         }
-      }, 1200);
+      ]);
     } catch (err) {
       console.error(err);
-      setTimeout(() => {
-        setBotLoading(false);
-        setBotMessages((prev) => [
-          ...prev,
-          {
-            sender: "bot",
-            text: "My neural link feels interrupted. Please verify your connection and try asking me again!"
-          }
-        ]);
-      }, 800);
+      setBotMessages((prev) => [
+        ...prev,
+        {
+          sender: "bot",
+          text: "My neural link feels interrupted. Please verify your connection and try asking me again!"
+        }
+      ]);
+    } finally {
+      setBotLoading(false);
     }
   };
 
-  const handleSuggestionClick = (query) => {
-    setBotInput(query);
+  const handleClearHistory = async () => {
+    if (!confirm("Are you sure you want to clear your chat history?")) return;
+    try {
+      await clearChatHistory();
+      setBotMessages([
+        {
+          sender: "bot",
+          text: "Hi! I'm IntelliBot, your AI Shopping Assistant. Tell me what you're looking for or describe your needs (e.g., 'I need a fast gaming laptop' or 'Show me shirts'), and I will find the best matches for you!",
+        }
+      ]);
+      toast.success("Chat history cleared");
+    } catch (err) {
+      console.error("Failed to clear chat history:", err);
+      toast.error("Failed to clear chat history");
+    }
   };
 
   return (
@@ -657,65 +752,108 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Right Side: Futuristic Glassmorphic Mock Mockup */}
+          {/* Right Side: Futuristic Glassmorphic Chatbot */}
           <div className="lg:col-span-7">
-            <div className="relative rounded-3xl border border-slate-800/80 shadow-2xl overflow-hidden bg-slate-900/40 backdrop-blur-md flex flex-col h-[420px] justify-between p-6 group">
+            <div className="relative rounded-3xl border border-slate-800/80 shadow-2xl overflow-hidden bg-slate-900/40 backdrop-blur-md flex flex-col h-[420px] justify-between p-6">
               
-              {/* Blur/Dim Overlay for Under Construction */}
-              <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[4px] z-20 flex flex-col items-center justify-center p-8 text-center transition-all duration-500 group-hover:backdrop-blur-[2px]">
-                {/* Glowing Icon */}
-                <div className="relative mb-6">
-                  <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl animate-pulse"></div>
-                  <div className="relative w-16 h-16 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center shadow-lg border border-white/10 animate-float">
-                    <svg className="w-8 h-8 text-white animate-spin" style={{ animationDuration: '12s' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
+              {/* Blur/Dim Overlay if User is NOT Authenticated */}
+              {!isAuthenticated && (
+                <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-[4px] z-20 flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+                  <div className="relative mb-6">
+                    <div className="absolute inset-0 rounded-full bg-primary/20 blur-xl animate-pulse"></div>
+                    <div className="relative w-16 h-16 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center shadow-lg border border-white/10 animate-float">
+                      <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
                   </div>
+                  
+                  <h4 className="font-extrabold text-xl text-white tracking-wide uppercase">Unlock IntelliBot Assistant</h4>
+                  <p className="text-slate-300 text-sm max-w-sm mt-2 leading-relaxed">
+                    Log in to experience our natural language AI shopping agent, query the catalog, and track details.
+                  </p>
+                  
+                  <Link 
+                    to="/login"
+                    className="bg-primary hover:bg-primary-hover text-white text-sm font-bold px-6 py-3 rounded-full mt-6 shadow-lg shadow-primary/20 transition duration-300 transform hover:scale-105"
+                  >
+                    Log In to Start Chatting
+                  </Link>
                 </div>
-                
-                <h4 className="font-extrabold text-xl text-white tracking-wide uppercase">Engine Offline</h4>
-                <p className="text-slate-300 text-sm max-w-sm mt-2 leading-relaxed">
-                  Integrating real-time product parsing & neural matching. Stay tuned!
-                </p>
-                
-                {/* Visual Progress Bar */}
-                <div className="w-64 bg-slate-900 border border-slate-800 rounded-full h-3.5 mt-6 overflow-hidden relative">
-                  <div className="bg-gradient-to-r from-primary to-secondary h-full rounded-full w-[92%] animate-pulse"></div>
-                  <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white tracking-wider">92% SYNCED</span>
-                </div>
-              </div>
+              )}
 
-              {/* Mock Chat UI Behind the overlay */}
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4 opacity-30 select-none">
+              {/* Chat Header */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center border border-slate-700/50 shadow-inner">
                     <span className="text-xs">🤖</span>
                   </div>
                   <div>
                     <h4 className="font-bold text-sm text-white">IntelliBot Assistant</h4>
-                    <span className="text-[10px] text-slate-500 font-semibold">Offline</span>
+                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                      Active Engine
+                    </span>
                   </div>
                 </div>
+                {isAuthenticated && (
+                  <button 
+                    onClick={handleClearHistory}
+                    title="Clear Chat History"
+                    className="text-xs text-slate-500 hover:text-red-400 transition-colors px-2.5 py-1 rounded bg-slate-950 border border-slate-800 hover:bg-red-500/10 hover:border-red-500/20"
+                  >
+                    🗑️ Clear
+                  </button>
+                )}
               </div>
 
-              <div className="flex-1 py-4 space-y-4 opacity-20 select-none">
-                <div className="bg-slate-800/50 p-3.5 rounded-2xl rounded-bl-none text-sm max-w-[80%] text-left">
-                  Hello! How can I assist you with shopping today?
-                </div>
-                <div className="bg-primary/50 p-3.5 rounded-2xl rounded-br-none text-sm max-w-[80%] ml-auto text-left">
-                  I need a mechanical keyboard under ₹15,000.
-                </div>
+              {/* Messages Area */}
+              <div className="flex-1 py-4 space-y-4 overflow-y-auto max-h-[260px] scrollbar-thin scrollbar-thumb-slate-800 text-left pr-1 my-2">
+                {botMessages.map((msg, index) => (
+                  <div 
+                    key={index}
+                    className={`p-3.5 rounded-2xl text-xs max-w-[85%] leading-relaxed ${
+                      msg.sender === "user"
+                        ? "bg-primary/20 border border-primary/20 ml-auto rounded-br-none"
+                        : "bg-slate-800/60 border border-slate-700/30 rounded-bl-none"
+                    }`}
+                  >
+                    <div 
+                      className="prose prose-invert max-w-none text-xs text-slate-300 leading-relaxed break-words"
+                      dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.text) }}
+                    />
+                  </div>
+                ))}
+                {botLoading && (
+                  <div className="bg-slate-800/60 border border-slate-700/30 p-3.5 rounded-2xl rounded-bl-none text-xs max-w-[80%] flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce"></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.15s' }}></span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0.3s' }}></span>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
               </div>
 
-              <div className="flex gap-2 opacity-30 select-none">
-                <div className="flex-1 bg-slate-800 text-sm rounded-full px-4 py-2.5">Type here...</div>
-                <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center font-bold text-xs">▶</div>
-              </div>
-
+              {/* Chat Input Footer Form */}
+              <form onSubmit={handleBotSubmit} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Ask about products, orders, your cart..."
+                  value={botInput}
+                  disabled={!isAuthenticated || botLoading}
+                  onChange={(e) => setBotInput(e.target.value)}
+                  className="flex-1 bg-slate-950 border border-slate-800 text-xs rounded-full px-4 py-3 text-white focus:outline-none focus:border-primary/50 transition-colors disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={!isAuthenticated || botLoading}
+                  className="w-10 h-10 rounded-full bg-primary hover:bg-primary-hover flex items-center justify-center font-bold text-xs text-white transition-colors disabled:opacity-50"
+                >
+                  ▶
+                </button>
+              </form>
             </div>
           </div>
-
         </div>
       </section>
 

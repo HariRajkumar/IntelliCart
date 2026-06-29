@@ -32,5 +32,19 @@ services:
     volumes:
       - mongodb_data:/data/db
 
+  ai-service:
+    build: ./ai-service
+    container_name: ecommerce_ai_service
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./ai-service:/app
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017
+    env_file:
+      - ./ai-service/.env
+    depends_on:
+      - mongodb
+
 volumes:
   mongodb_data:
