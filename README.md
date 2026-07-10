@@ -7,7 +7,6 @@ IntelliCart is a full-stack e-commerce demo application with a FastAPI backend, 
 - `backend/` — FastAPI API server, MongoDB (Motor + Beanie) integration, authentication with JWT & OTP email verification, product reviews with verified purchase logic, cart management, checkout with programmatic stock rollback, analytics aggregation APIs, order tracking, and email logistics.
 - `frontend/` — React/Vite app powered by Tailwind CSS, featuring product catalog filtering, interactive cart, coupon discounts, secure profile and address management (with auto-selecting new address flows), search & sort options, product reviews with ratings & verified badges, and a comprehensive admin panel with interactive Recharts analytics graphs.
 - `docker-compose.yml` — Multi-container containerized stack orchestration for local development (FastAPI backend, React frontend, and MongoDB database).
-- `nginx/` — Reverse-proxy configuration assets for unified routing (reserved).
 - `ai-service/` — Directory reserved for optional machine learning and recommendations services.
 - `DEV_MANUAL.md` — Detailed technical developer manual explaining page flows, authentication lifecycles, database migrations, and schema/service architectures.
 
