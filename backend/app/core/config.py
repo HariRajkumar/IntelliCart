@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     SMTP_FROM_NAME: str
     OTP_EXPIRY_MINUTES: int = 10
 
+    ALLOWED_ORIGINS: str = "http://localhost:5173"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True

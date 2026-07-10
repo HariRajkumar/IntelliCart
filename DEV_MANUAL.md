@@ -138,7 +138,54 @@ At startup, `connect_to_mongo` runs a series of backfill migrations:
 
 ---
 
-## 5. Recommended Future Enhancements
+## 5. Deployment Guide
+
+This full-stack application is optimized for modern cloud deployments. Below is a breakdown of the production configuration architecture and PaaS target platforms:
+
+### A. Routing & Single-Page Application (SPA) Support
+- **Client Routing Fallback:** SPA architectures using client-side routing libraries (like React Router) require the web server to serve `index.html` on all unmatched route requests so the frontend app can handle routing internally.
+- **Vercel Rewrite Rules:** The frontend features a [vercel.json](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/vercel.json) file defining a wildcard rewrite rule:
+  ```json
+  {
+    "rewrites": [
+      { "source": "/(.*)", "destination": "/index.html" }
+    ]
+  }
+  ```
+  This ensures refreshing paths like `/products` or `/admin` does not trigger 404 errors.
+
+### B. Dynamic Environment & Port Bindings
+- **FastAPI / Uvicorn Port Bindings:** Railway and Render assign variable routing ports using the `PORT` environment variable. The Dockerfiles for both the backend and AI services use a dynamic binding command:
+  ```dockerfile
+  CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+  ```
+  This allows the container to dynamically listen on the assigned host port while retaining port fallback functionality for local testing.
+
+### C. CORS Settings for Distributed Environments
+- **Configurable Origins:** Since the frontend and services reside on different host domains (Vercel CDN vs Railway/Render servers), CORS controls are active.
+- **Backend Whitelist:** The backend includes a configurable list of allowed origins via the `ALLOWED_ORIGINS` environment variable. At startup, the CORS middleware parses this comma-separated list to authenticate cross-domain fetch requests.
+
+### D. Production Environment Variables Checklist
+Make sure to set the following variables on their respective hosting dashboards:
+1. **Frontend (Vercel):**
+   - `VITE_API_URL` (Points to backend deployed API root endpoint `/api/v1`)
+   - `VITE_AI_API_URL` (Points to AI service deployed API root endpoint `/api/v1`)
+2. **Backend (Railway/Render):**
+   - `MONGODB_URL` (Database connection URL)
+   - `DATABASE_NAME` (e.g., `intellicart`)
+   - `JWT_SECRET_KEY` (Strong secret key for user sessions)
+   - `ALLOWED_ORIGINS` (Comma-separated list of allowed browser domains, e.g., `https://intellicart-app.vercel.app`)
+   - SMTP credentials (`SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`)
+3. **AI Service (Railway/Render):**
+   - `MONGO_URI` (Database connection URL)
+   - `DATABASE_NAME` (e.g., `intellicart` - must match the backend database name)
+   - `JWT_SECRET` (Must match the backend's `JWT_SECRET_KEY` to decode authorization headers)
+   - `GROQ_API_KEY` (API key to power chatbot services)
+
+---
+
+## 6. Recommended Future Enhancements
 - **Message Queues:** Offload SMTP mail transmissions from background asyncio tasks to a dedicated message broker (e.g. Celery + Redis).
 - **Payment Processing:** Replace dummy credit card submission forms with standard integrations (Stripe, Razorpay API integrations).
 - **AI-Powered Recommendations:** Implement personalized product recommendations using the reserved `ai-service/` directory.
+

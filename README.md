@@ -144,6 +144,40 @@ docker compose up --build
 
 ---
 
+### 4. Production Deployment
+
+This project is prepared for deployment using **Vercel** (for the frontend React SPA) and **Railway** or **Render** (for the backend and AI services).
+
+#### A. Frontend Deployment (Vercel)
+1. Import the root repository or `frontend` folder into Vercel.
+2. If importing the root repository, set the **Root Directory** to `frontend`.
+3. Configure the following **Environment Variables** in Vercel settings:
+   - `VITE_API_URL`: The production URL of your backend service (e.g., `https://intellicart-backend.up.railway.app/api/v1`).
+   - `VITE_AI_API_URL`: The production URL of your AI service (e.g., `https://intellicart-ai.up.railway.app/api/v1`).
+4. Click **Deploy**. Vercel will build the Vite app statically and route client-side URLs seamlessly using the configured `vercel.json`.
+
+#### B. Backend Deployment (Railway or Render)
+1. Deploy the `backend/` directory as a Docker service (it will automatically build from `backend/Dockerfile`).
+2. Add the following **Environment Variables** to the backend service:
+   - `MONGODB_URL`: Connection string to your production database (e.g., MongoDB Atlas or Railway MongoDB service).
+   - `DATABASE_NAME`: Your database name.
+   - `JWT_SECRET_KEY`: A secure random secret string for signing JWT tokens.
+   - `ALLOWED_ORIGINS`: Comma-separated list of origins allowed to access the APIs, including your Vercel deployment URL (e.g., `https://intellicart.vercel.app,http://localhost`).
+   - Standard SMTP credentials: `SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`.
+3. Render and Railway dynamically assign ports through the `PORT` environment variable. The backend automatically binds to this variable.
+
+#### C. AI Service Deployment (Railway or Render)
+1. Deploy the `ai-service/` directory as a Docker service (it will automatically build from `ai-service/Dockerfile`).
+2. Add the following **Environment Variables** to the AI service:
+   - `MONGO_URI`: Connection string to your production database (must share database access with the backend).
+   - `DATABASE_NAME`: Database name (e.g., `intellicart`).
+   - `JWT_SECRET`: A secure random secret string. **Must match the backend's `JWT_SECRET_KEY`** to verify credentials correctly.
+   - `GROQ_API_KEY`: API key for Groq to power chatbot queries.
+3. Like the backend, the AI service dynamically binds to the `$PORT` environment variable assigned by the platform.
+
+---
+
+
 ## Seed Accounts (Testing Credentials)
 
 For fast testing of the application's functionality, the database is seeded automatically at startup:
