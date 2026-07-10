@@ -30,9 +30,23 @@ class Product(Document):
 
     category: str
 
+    specifications: dict[str, str] = Field(default_factory=dict)
+
     images: List[str] = []
 
+    mrp: Optional[float] = Field(default=None, gt=0)
+
+    discount: float = Field(default=0.0, ge=0.0, le=100.0)
+
+    rating: float = Field(default=0.0, ge=0.0, le=5.0)
+
+    reviews_count: int = Field(default=0, ge=0)
+
     is_active: bool = True
+
+    seller_name: Optional[str] = "IntelliCart Central Hub"
+
+    seller_postal_code: str = Field(default="400001", min_length=3, max_length=20)
 
     created_at: datetime = Field(
         default_factory=datetime.utcnow

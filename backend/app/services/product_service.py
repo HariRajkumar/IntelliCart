@@ -1,5 +1,6 @@
 from fastapi import HTTPException, status
 from fastapi import UploadFile
+from datetime import datetime
 
 from app.utils.file_upload import (
     save_product_image
@@ -11,6 +12,11 @@ from app.schemas.product_schema import (
     ProductCreate,
     ProductUpdate
 )
+from app.schemas.review_schema import ReviewCreate
+from app.models.review_model import Review
+from app.models.cart_model import Cart
+from app.models.order_model import Order
+from app.core.order_status import OrderStatus
 
 
 
@@ -40,7 +46,10 @@ class ProductService:
         category: str | None = None,
         search: str | None = None,
         min_price: float | None = None,
-        max_price: float | None = None
+        max_price: float | None = None,
+        min_rating: float | None = None,
+        in_stock: bool | None = None,
+        sort_by: str | None = None
     ):
 
         skip = (page - 1) * limit
@@ -52,7 +61,10 @@ class ProductService:
                 category=category,
                 search=search,
                 min_price=min_price,
-                max_price=max_price
+                max_price=max_price,
+                min_rating=min_rating,
+                in_stock=in_stock,
+                sort_by=sort_by
             )
         )
 
@@ -61,7 +73,9 @@ class ProductService:
                 category=category,
                 search=search,
                 min_price=min_price,
-                max_price=max_price
+                max_price=max_price,
+                min_rating=min_rating,
+                in_stock=in_stock
             )
         )
 
@@ -154,6 +168,40 @@ class ProductService:
         }
 
     @staticmethod
+    async def hard_delete_product(
+        product_id: str
+    ):
+
+        product = await (
+            ProductRepository.get_product_by_id(
+                product_id
+            )
+        )
+
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        # 1. Cascade Delete Reviews: remove all reviews for this product
+        await Review.find(Review.product_id == product_id).delete()
+
+        # 2. Cascade Delete CartItems: pull product from active carts and recompute total_price
+        carts = await Cart.find(Cart.items.product_id == product_id).to_list()
+        for cart in carts:
+            cart.items = [item for item in cart.items if item.product_id != product_id]
+            cart.total_price = sum(item.price * item.quantity for item in cart.items)
+            await cart.save()
+
+        # 3. Hard Delete Product document
+        await ProductRepository.hard_delete_product(product)
+
+        return {
+            "message": "Product and associated reviews/cart items hard-deleted successfully"
+        }
+
+    @staticmethod
     async def search_products(
         query: str
     ):
@@ -180,7 +228,67 @@ class ProductService:
             "stock": product.stock,
             "category": product.category,
             "images": product.images,
-            "is_active": product.is_active
+            "is_active": product.is_active,
+            "mrp": getattr(product, "mrp", None),
+            "discount": getattr(product, "discount", 0.0),
+            "rating": getattr(product, "rating", 0.0),
+            "reviews_count": getattr(product, "reviews_count", 0),
+            "seller_name": getattr(product, "seller_name", "IntelliCart Central Hub"),
+            "seller_postal_code": getattr(product, "seller_postal_code", "400001"),
+            "specifications": getattr(product, "specifications", {})
+        }
+
+    @staticmethod
+    async def calculate_delivery_estimate(product_id: str, postal_code: str):
+        product = await (
+            ProductRepository.get_product_by_id(
+                product_id
+            )
+        )
+        if not product or not product.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        origin = getattr(product, "seller_postal_code", "400001")
+        seller_name = getattr(product, "seller_name", "IntelliCart Central Hub")
+
+        origin_clean = "".join(c for c in origin if c.isalnum()).strip()
+        dest_clean = "".join(c for c in postal_code if c.isalnum()).strip()
+
+        if not dest_clean:
+            min_days, max_days = 3, 5
+        elif origin_clean == dest_clean:
+            min_days, max_days = 1, 1
+        elif len(origin_clean) >= 3 and len(dest_clean) >= 3 and origin_clean[:3] == dest_clean[:3]:
+            min_days, max_days = 1, 2
+        elif len(origin_clean) >= 1 and len(dest_clean) >= 1 and origin_clean[0] == dest_clean[0]:
+            min_days, max_days = 2, 3
+        else:
+            min_days, max_days = 4, 5
+
+        from datetime import datetime, timedelta
+        today = datetime.now()
+        min_delivery_date = today + timedelta(days=min_days)
+        max_delivery_date = today + timedelta(days=max_days)
+
+        min_date_str = min_delivery_date.strftime("%A, %b %d")
+        max_date_str = max_delivery_date.strftime("%A, %b %d")
+
+        if min_days == max_days:
+            delivery_date_range = min_date_str
+        else:
+            delivery_date_range = f"{min_date_str} to {max_date_str}"
+
+        return {
+            "product_id": product_id,
+            "origin_postal_code": origin,
+            "destination_postal_code": postal_code,
+            "seller_name": seller_name,
+            "min_days": min_days,
+            "max_days": max_days,
+            "delivery_date_range": delivery_date_range
         }
     
     @staticmethod
@@ -215,3 +323,116 @@ class ProductService:
         return ProductService.serialize_product(
             updated_product
         )
+
+    @staticmethod
+    async def get_product_reviews(product_id: str):
+        """Fetch all reviews for a product sorted latest first."""
+        product = await ProductRepository.get_product_by_id(product_id)
+        if not product:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        reviews = await (
+            Review.find(Review.product_id == product_id)
+            .sort("-created_at")
+            .to_list()
+        )
+
+        return [
+            {
+                "id": str(r.id),
+                "product_id": r.product_id,
+                "user_id": r.user_id,
+                "user_name": r.user_name,
+                "rating": r.rating,
+                "title": r.title,
+                "comment": r.comment,
+                "verified_purchase": getattr(r, "verified_purchase", False),
+                "created_at": r.created_at,
+            }
+            for r in reviews
+        ]
+
+    @staticmethod
+    async def submit_product_review(
+        product_id: str,
+        user_id: str,
+        user_name: str,
+        data: ReviewCreate
+    ):
+        """Create or update the authenticated user's review for this product."""
+        product = await ProductRepository.get_product_by_id(product_id)
+        if not product or not product.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Product not found"
+            )
+
+        # Check if the user has bought the product (order is not cancelled, paid or COD and confirmed)
+        orders = await Order.find(
+            Order.user_id == user_id,
+            Order.status != OrderStatus.CANCELLED,
+            Order.items.product_id == product_id
+        ).to_list()
+
+        verified_purchase = False
+        for order in orders:
+            p_status = getattr(order, "payment_status", "pending")
+            p_method = getattr(order, "payment_method", None)
+            if p_status == "paid" or (p_method == "COD" and order.status != OrderStatus.PENDING):
+                verified_purchase = True
+                break
+
+        # Upsert: find existing review by this real user (skip mock users)
+        existing = await Review.find_one(
+            Review.product_id == product_id,
+            Review.user_id == user_id
+        )
+
+        now = datetime.utcnow()
+        if existing:
+            existing.rating = data.rating
+            existing.title = data.title
+            existing.comment = data.comment
+            existing.verified_purchase = verified_purchase
+            existing.updated_at = now
+            await existing.save()
+            saved = existing
+        else:
+            saved = Review(
+                product_id=product_id,
+                user_id=user_id,
+                user_name=user_name,
+                rating=data.rating,
+                title=data.title,
+                comment=data.comment,
+                verified_purchase=verified_purchase,
+                created_at=now,
+                updated_at=now,
+            )
+            await saved.insert()
+
+        # Recalculate aggregate rating and count from all real reviews
+        all_reviews = await Review.find(
+            Review.product_id == product_id
+        ).to_list()
+
+        product.reviews_count = len(all_reviews)
+        product.rating = round(
+            sum(r.rating for r in all_reviews) / len(all_reviews), 2
+        ) if len(all_reviews) > 0 else 0.0
+        await product.save()
+
+        return {
+            "id": str(saved.id),
+            "product_id": saved.product_id,
+            "user_id": saved.user_id,
+            "user_name": saved.user_name,
+            "rating": saved.rating,
+            "title": saved.title,
+            "comment": saved.comment,
+            "verified_purchase": saved.verified_purchase,
+            "created_at": saved.created_at,
+        }

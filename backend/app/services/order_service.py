@@ -1,10 +1,15 @@
+import asyncio
+import logging
+
 from fastapi import HTTPException, status
 
 from app.models.order_model import OrderItem
 from app.core.order_status import OrderStatus
+from app.models.user_model import User, UserAddress
 
 from app.schemas.order_schema import (
-    UpdateOrderStatusRequest
+    UpdateOrderStatusRequest,
+    CheckoutRequest
 )
 from app.repositories.cart_repository import (
     CartRepository
@@ -15,13 +20,20 @@ from app.repositories.order_repository import (
 from app.repositories.product_repository import (
     ProductRepository
 )
+from app.utils.email import (
+    send_order_confirmation_email,
+    send_logistics_update_email
+)
+
+logger = logging.getLogger(__name__)
 
 
 class OrderService:
 
     @staticmethod
     async def checkout(
-        user_id: str
+        user_id: str,
+        request: CheckoutRequest
     ):
 
         cart = await (
@@ -36,50 +48,94 @@ class OrderService:
                 detail="Cart is empty"
             )
 
-        order_items = []
-
-        for item in cart.items:
-
-            product = await (
-                ProductRepository.get_product_by_id(
-                    item.product_id
-                )
+        # Resolve shipping address
+        shipping_address = None
+        if request.shipping_address:
+            shipping_address = UserAddress(
+                id=request.shipping_address.id,
+                address_line=request.shipping_address.address_line,
+                city=request.shipping_address.city,
+                state=request.shipping_address.state,
+                postal_code=request.shipping_address.postal_code,
+                country=request.shipping_address.country,
+                is_default=request.shipping_address.is_default
+            )
+        elif request.shipping_address_id:
+            user = await User.get(user_id)
+            if user and user.addresses:
+                matching = next((a for a in user.addresses if a.id == request.shipping_address_id), None)
+                if matching:
+                    shipping_address = matching
+        
+        # Fallback to user default address if not set
+        if not shipping_address:
+            user = await User.get(user_id)
+            if user and user.addresses:
+                default_addr = next((a for a in user.addresses if a.is_default), None)
+                if default_addr:
+                    shipping_address = default_addr
+                elif user.addresses:
+                    shipping_address = user.addresses[0]
+        
+        if not shipping_address:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Shipping address is required. Please set up a shipping address in your profile first."
             )
 
-            if not product:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=(
-                        f"Product not found: "
-                        f"{item.name}"
+        order_items = []
+        deducted_items = []
+
+        try:
+            for item in cart.items:
+
+                product = await (
+                    ProductRepository.get_product_by_id(
+                        item.product_id
                     )
                 )
 
-            if product.stock < item.quantity:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=(
-                        f"Insufficient stock "
-                        f"for {item.name}"
+                if not product:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=(
+                            f"Product not found: "
+                            f"{item.name}"
+                        )
                     )
-                )
 
-            await (
-                ProductRepository.reduce_stock(
-                    product,
+                # Atomically reduce stock
+                success = await ProductRepository.reduce_stock(
+                    item.product_id,
                     item.quantity
                 )
-            )
 
-            order_items.append(
-                OrderItem(
-                    product_id=item.product_id,
-                    name=item.name,
-                    price=item.price,
-                    quantity=item.quantity,
-                    image=item.image
+                if not success:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=(
+                            f"Insufficient stock "
+                            f"for {item.name}"
+                        )
+                    )
+
+                # Keep track of successfully deducted items
+                deducted_items.append((item.product_id, item.quantity))
+
+                order_items.append(
+                    OrderItem(
+                        product_id=item.product_id,
+                        name=item.name,
+                        price=item.price,
+                        quantity=item.quantity,
+                        image=item.image
+                    )
                 )
-            )
+        except Exception as e:
+            # Programmatic Rollback: restore stock for already deducted items
+            for prod_id, qty in deducted_items:
+                await ProductRepository.restore_stock(prod_id, qty)
+            raise e
 
         order = await (
             OrderRepository.create_order(
@@ -87,7 +143,11 @@ class OrderService:
                     "user_id": user_id,
                     "items": order_items,
                     "total_price": cart.total_price,
-                    "status": "pending"
+                    "status": "pending",
+                    "shipping_address": shipping_address,
+                    "payment_method": request.payment_method,
+                    "payment_status": request.payment_status or "pending",
+                    "payment_transaction_id": request.payment_transaction_id
                 }
             )
         )
@@ -97,6 +157,24 @@ class OrderService:
         cart.total_price = 0
 
         await CartRepository.save_cart(cart)
+
+        # ---------------------------------------------------------------
+        # Send order confirmation email to the customer (fire-and-forget)
+        # ---------------------------------------------------------------
+        async def _send_confirmation():
+            try:
+                user = await User.get(user_id)
+                if user:
+                    await send_order_confirmation_email(
+                        to_email=str(user.email),
+                        customer_name=user.full_name or str(user.email),
+                        order=order
+                    )
+                    logger.info("Order confirmation email sent to %s", user.email)
+            except Exception as exc:
+                logger.error("Failed to send order confirmation email: %s", exc)
+
+        asyncio.create_task(_send_confirmation())
 
         return OrderService.serialize_order(order)
 
@@ -129,6 +207,94 @@ class OrderService:
         ]
 
     @staticmethod
+    async def get_analytics_data():
+        from app.models.product_model import Product
+        from app.models.order_model import Order
+        from collections import defaultdict
+        from datetime import datetime, timedelta
+
+        orders = await Order.find_all().to_list()
+        products = await Product.find_all().to_list()
+
+        prod_category_map = {str(p.id): p.category for p in products}
+        prod_name_map = {str(p.id): p.name for p in products}
+
+        # 30 days daily stats
+        today = datetime.utcnow().date()
+        date_list = [today - timedelta(days=i) for i in range(29, -1, -1)]
+        daily_stats = {d.isoformat(): {"date": d.isoformat(), "revenue": 0.0, "orders": 0} for d in date_list}
+
+        category_sales = defaultdict(lambda: {"revenue": 0.0, "units_sold": 0})
+        status_distribution = defaultdict(int)
+        product_sales = defaultdict(lambda: {"name": "Unknown", "revenue": 0.0, "units_sold": 0})
+
+        for order in orders:
+            status_val = order.status.value if hasattr(order.status, "value") else str(order.status)
+            status_distribution[status_val] += 1
+
+            if order.status == OrderStatus.CANCELLED:
+                continue
+
+            order_date = order.created_at.date()
+            date_str = order_date.isoformat()
+            if date_str in daily_stats:
+                daily_stats[date_str]["revenue"] += order.total_price
+                daily_stats[date_str]["orders"] += 1
+
+            for item in order.items:
+                p_id = str(item.product_id)
+                qty = item.quantity
+                item_revenue = item.price * qty
+
+                cat = prod_category_map.get(p_id, "Uncategorized")
+                category_sales[cat]["revenue"] += item_revenue
+                category_sales[cat]["units_sold"] += qty
+
+                p_name = item.name or prod_name_map.get(p_id, "Unknown Product")
+                product_sales[p_id]["name"] = p_name
+                product_sales[p_id]["revenue"] += item_revenue
+                product_sales[p_id]["units_sold"] += qty
+
+        daily_revenue_list = list(daily_stats.values())
+
+        category_breakdown_list = [
+            {"category": cat, "revenue": data["revenue"], "units_sold": data["units_sold"]}
+            for cat, data in category_sales.items()
+        ]
+
+        status_distribution_list = [
+            {"status": status, "count": count}
+            for status, count in status_distribution.items()
+        ]
+
+        top_products_list = sorted(
+            [
+                {"id": p_id, "name": data["name"], "revenue": data["revenue"], "units_sold": data["units_sold"]}
+                for p_id, data in product_sales.items()
+            ],
+            key=lambda x: x["units_sold"],
+            reverse=True
+        )[:5]
+
+        active_products_count = sum(1 for p in products if p.is_active)
+        total_orders_count = len(orders)
+        categories_count = len(category_sales.keys()) or len(set(prod_category_map.values()))
+        total_revenue = sum(o.total_price for o in orders if o.status != OrderStatus.CANCELLED)
+
+        return {
+            "summary": {
+                "total_revenue": total_revenue,
+                "active_products_count": active_products_count,
+                "total_orders_count": total_orders_count,
+                "categories_count": categories_count,
+            },
+            "daily_revenue": daily_revenue_list,
+            "category_sales": category_breakdown_list,
+            "status_distribution": status_distribution_list,
+            "top_products": top_products_list,
+        }
+
+    @staticmethod
     def serialize_order(order):
 
         return {
@@ -146,6 +312,18 @@ class OrderService:
             ],
             "total_price": order.total_price,
             "status": order.status,
+            "shipping_address": {
+                "id": order.shipping_address.id,
+                "address_line": order.shipping_address.address_line,
+                "city": order.shipping_address.city,
+                "state": order.shipping_address.state,
+                "postal_code": order.shipping_address.postal_code,
+                "country": order.shipping_address.country,
+                "is_default": order.shipping_address.is_default
+            } if getattr(order, "shipping_address", None) else None,
+            "payment_method": getattr(order, "payment_method", None),
+            "payment_status": getattr(order, "payment_status", "pending"),
+            "payment_transaction_id": getattr(order, "payment_transaction_id", None),
             "created_at": order.created_at
         }
     
@@ -177,26 +355,112 @@ class OrderService:
         ):
 
             for item in order.items:
-
-                product = await (
-                    ProductRepository.get_product_by_id(
-                        item.product_id
-                    )
+                await ProductRepository.restore_stock(
+                    item.product_id,
+                    item.quantity
                 )
-
-                if product:
-
-                    await (
-                        ProductRepository.restore_stock(
-                            product,
-                            item.quantity
-                        )
-                    )
 
         updated_order = await (
             OrderRepository.save_order(order)
         )
 
+        # Re-verify reviews for this order
+        for item in order.items:
+            await OrderService.reverify_user_review_for_product(order.user_id, item.product_id)
+
+        # ---------------------------------------------------------------
+        # Send logistics update email when status changes to a key state
+        # ---------------------------------------------------------------
+        NOTIFY_STATUSES = {OrderStatus.SHIPPED, OrderStatus.DELIVERED, OrderStatus.CANCELLED}
+        if request.status in NOTIFY_STATUSES and old_status != request.status:
+            async def _send_update(order_ref=updated_order, new_st=request.status):
+                try:
+                    user = await User.get(order_ref.user_id)
+                    if user:
+                        await send_logistics_update_email(
+                            to_email=str(user.email),
+                            customer_name=user.full_name or str(user.email),
+                            order_id=str(order_ref.id),
+                            new_status=new_st.value  # use .value → "shipped" / "delivered" / "cancelled"
+                        )
+                        logger.info(
+                            "Logistics update email (%s) sent to %s",
+                            new_st.value, user.email
+                        )
+                except Exception as exc:
+                    logger.error("Failed to send logistics update email: %s", exc)
+
+            asyncio.create_task(_send_update())
+
         return OrderService.serialize_order(
             updated_order
         )
+
+    @staticmethod
+    async def cancel_order(
+        order_id: str,
+        user_id: str
+    ):
+        order = await OrderRepository.get_order_by_id(order_id)
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Order not found"
+            )
+
+        if order.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to cancel this order"
+            )
+
+        if order.status not in (OrderStatus.PENDING, OrderStatus.PROCESSING):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Only pending or processing orders can be cancelled. Current status is '{order.status}'."
+            )
+
+        order.status = OrderStatus.CANCELLED
+
+        for item in order.items:
+            await ProductRepository.restore_stock(item.product_id, item.quantity)
+
+        updated_order = await OrderRepository.save_order(order)
+
+        # Re-verify reviews for this order
+        for item in order.items:
+            await OrderService.reverify_user_review_for_product(order.user_id, item.product_id)
+
+        return OrderService.serialize_order(updated_order)
+
+    @staticmethod
+    async def reverify_user_review_for_product(user_id: str, product_id: str):
+        from app.models.review_model import Review
+        from app.models.order_model import Order
+        
+        # Find if the user has a review for this product
+        review = await Review.find_one(
+            Review.product_id == product_id,
+            Review.user_id == user_id
+        )
+        if not review:
+            return
+            
+        # Re-evaluate verified purchase status
+        orders = await Order.find(
+            Order.user_id == user_id,
+            Order.status != OrderStatus.CANCELLED,
+            Order.items.product_id == product_id
+        ).to_list()
+        
+        verified = False
+        for o in orders:
+            p_status = getattr(o, "payment_status", "pending")
+            p_method = getattr(o, "payment_method", None)
+            if p_status == "paid" or (p_method == "COD" and o.status != OrderStatus.PENDING):
+                verified = True
+                break
+                
+        if review.verified_purchase != verified:
+            review.verified_purchase = verified
+            await review.save()

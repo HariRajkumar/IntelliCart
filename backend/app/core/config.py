@@ -14,6 +14,16 @@ class Settings(BaseSettings):
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int
 
+    SMTP_SERVER: str
+    SMTP_PORT: int
+    SMTP_USERNAME: str
+    SMTP_PASSWORD: str
+    SMTP_FROM_EMAIL: str
+    SMTP_FROM_NAME: str
+    OTP_EXPIRY_MINUTES: int = 10
+
+    ALLOWED_ORIGINS: str = "http://localhost:5173"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True

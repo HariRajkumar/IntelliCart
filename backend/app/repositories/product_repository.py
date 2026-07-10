@@ -1,4 +1,5 @@
 from typing import Optional
+from beanie import PydanticObjectId
 
 from app.models.product_model import Product
 
@@ -10,7 +11,8 @@ class ProductRepository:
         product_data: dict
     ) -> Product:
 
-        product = Product(**product_data)
+        filtered_data = {k: v for k, v in product_data.items() if v is not None}
+        product = Product(**filtered_data)
 
         await product.insert()
 
@@ -23,7 +25,10 @@ class ProductRepository:
         category: str | None = None,
         search: str | None = None,
         min_price: float | None = None,
-        max_price: float | None = None
+        max_price: float | None = None,
+        min_rating: float | None = None,
+        in_stock: bool | None = None,
+        sort_by: str | None = None
     ):
 
         filters = {
@@ -49,9 +54,26 @@ class ProductRepository:
             if max_price is not None:
                 filters["price"]["$lte"] = max_price
 
+        if min_rating is not None:
+            filters["rating"] = {"$gte": min_rating}
+
+        if in_stock is True:
+            filters["stock"] = {"$gt": 0}
+
+        query = Product.find(filters)
+
+        if sort_by:
+            if sort_by == "price_asc":
+                query = query.sort("+price")
+            elif sort_by == "price_desc":
+                query = query.sort("-price")
+            elif sort_by == "rating_desc":
+                query = query.sort("-rating")
+            elif sort_by == "newest":
+                query = query.sort("-created_at")
+
         return await (
-            Product.find(filters)
-            .skip(skip)
+            query.skip(skip)
             .limit(limit)
             .to_list()
         )
@@ -130,26 +152,60 @@ class ProductRepository:
     
     @staticmethod
     async def reduce_stock(
-        product: Product,
+        product_id: str,
         quantity: int
-    ):
+    ) -> bool:
+        # Atomically decrement the stock only if stock >= quantity and product is active
+        try:
+            p_id = PydanticObjectId(product_id)
+        except Exception:
+            return False
 
-        product.stock -= quantity
-
-        await product.save()
-
-        return product
+        result = await Product.find_one(
+            Product.id == p_id,
+            Product.stock >= quantity,
+            Product.is_active == True
+        ).update({"$inc": {"stock": -quantity}})
+        return result.modified_count > 0
     
     @staticmethod
     async def restore_stock(
-        product: Product,
+        product_id: str,
         quantity: int
+    ) -> bool:
+        # Atomically increment stock
+        try:
+            p_id = PydanticObjectId(product_id)
+        except Exception:
+            return False
+
+        result = await Product.find_one(
+            Product.id == p_id
+        ).update({"$inc": {"stock": quantity}})
+        return result.modified_count > 0
+    
+    @staticmethod
+    async def update_product_categories(
+        old_category_name: str,
+        new_category_name: str
     ):
+        await Product.find(
+            Product.category == old_category_name
+        ).update({"$set": {"category": new_category_name}})
 
-        product.stock += quantity
+    @staticmethod
+    async def reassign_category_to_uncategorized(
+        category_name: str
+    ):
+        await Product.find(
+            Product.category == category_name
+        ).update({"$set": {"category": "Uncategorized"}})
 
-        await product.save()
-
+    @staticmethod
+    async def hard_delete_product(
+        product: Product
+    ):
+        await product.delete()
         return product
     
     @staticmethod
@@ -157,7 +213,9 @@ class ProductRepository:
         category: str | None = None,
         search: str | None = None,
         min_price: float | None = None,
-        max_price: float | None = None
+        max_price: float | None = None,
+        min_rating: float | None = None,
+        in_stock: bool | None = None
     ):
 
         filters = {
@@ -182,6 +240,12 @@ class ProductRepository:
 
             if max_price is not None:
                 filters["price"]["$lte"] = max_price
+
+        if min_rating is not None:
+            filters["rating"] = {"$gte": min_rating}
+
+        if in_stock is True:
+            filters["stock"] = {"$gt": 0}
 
         return await Product.find(
             filters

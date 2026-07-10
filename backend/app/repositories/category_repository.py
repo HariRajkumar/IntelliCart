@@ -22,3 +22,27 @@ class CategoryRepository:
                 Category.is_active == True
             ).to_list()
         )
+
+    @staticmethod
+    async def get_category_by_id(
+        category_id: str
+    ):
+        return await Category.get(category_id)
+
+    @staticmethod
+    async def update_category(
+        category: Category,
+        update_data: dict
+    ):
+        for key, value in update_data.items():
+            if value is not None:
+                setattr(category, key, value)
+        await category.save()
+        return category
+
+    @staticmethod
+    async def delete_category(
+        category: Category
+    ):
+        await category.delete()
+        return category

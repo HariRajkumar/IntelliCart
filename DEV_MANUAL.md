@@ -1,148 +1,191 @@
 # IntelliCart — Developer Manual
 
-This document describes the backend and frontend architecture, explains each major functionality, lists important files with links, and describes frontend flows and edge cases.
-
-## **Overview**
-- **Purpose:** Full-stack e-commerce sample (IntelliCart) with FastAPI backend and React + Vite frontend.
-- **Backend base URL:** `http://localhost:8000/api/v1`
-- **Frontend dev URL:** `http://localhost:5173` (Vite default)
-- **Containerized dev:** `docker compose up --build` starts backend, frontend, and MongoDB.
-
-## **Backend — Structure & Key Files**
-- **Entrypoint:** [backend/app/main.py](backend/app/main.py) — FastAPI app, lifespan hooks, CORS, mounts `/uploads`, registers routers.
-- **Config:** [backend/app/core/config.py](backend/app/core/config.py) — settings via `.env` (`MONGODB_URL`, `DATABASE_NAME`, `JWT_SECRET_KEY`, `JWT_ALGORITHM`, `ACCESS_TOKEN_EXPIRE_MINUTES`).
-- **Security helpers:** [backend/app/core/security.py](backend/app/core/security.py) — password hashing, JWT creation/verification, expiry.
-- **Enums:** [backend/app/core/roles.py](backend/app/core/roles.py), [backend/app/core/order_status.py](backend/app/core/order_status.py).
-- **DB connection:** [backend/app/db/database.py](backend/app/db/database.py) — Motor + Beanie, connects to MongoDB, registers document models.
-- **Models (documents):** [backend/app/models](backend/app/models) — `User`, `Product`, `Category`, `Cart`, `Order` definitions.
-- **Schemas (Pydantic):** [backend/app/schemas](backend/app/schemas) — request/response validation models.
-- **Repositories:** [backend/app/repositories](backend/app/repositories) — DB access helpers per domain.
-- **Services:** [backend/app/services](backend/app/services) — business logic and error mapping.
-- **Routes / API layer:** [backend/app/api](backend/app/api) — HTTP endpoints mapped to services and dependencies.
-- **File upload:** [backend/app/utils/file_upload.py](backend/app/utils/file_upload.py) — image validation and saving; uploads served from `/uploads`.
-
-## **Backend — Functionalities & Flows**
-
-Authentication & Authorization
-- Register: `POST /auth/register` — validates payload, prevents duplicate emails, hashes password, creates `User`.
-- Login: `POST /auth/login` — OAuth2 form, verifies password, returns JWT (`access_token`) with configured expiry. See [backend/app/services/auth_service.py](backend/app/services/auth_service.py) and [backend/app/api/auth_routes.py](backend/app/api/auth_routes.py).
-- Token validation: `backend/app/dependencies/auth_dependencies.py` decodes JWT and loads `User`. Admin checks use `admin_required`.
-
-Products
-- CRUD and search endpoints under `/products` (see [backend/app/api/product_routes.py](backend/app/api/product_routes.py)).
-- Listing supports pagination and price/category filters (server-side). Product images saved via upload endpoint and accessible from `http://localhost:8000` + image path.
-- Delete is soft: `is_active` flag toggled.
-
-Categories
-- Admin can create categories; listing available to all. See [backend/app/services/category_service.py](backend/app/services/category_service.py).
-
-Cart
-- Add item: validates product active + stock, creates cart if absent, increments existing item or appends new `CartItem`, recomputes `total_price` (see [backend/app/services/cart_service.py](backend/app/services/cart_service.py)).
-- Update quantity: `quantity <= 0` removes item; verify stock.
-- Remove / Clear cart endpoints delete or empty cart.
-
-Orders
-- Checkout: validates cart non-empty, checks product existence and stock, reduces product stock, creates `Order` with `status: pending`, clears cart. See [backend/app/services/order_service.py](backend/app/services/order_service.py).
-- Admin can list all orders and update order status. When status transitions to `cancelled`, items' stock is restored.
-
-Uploads
-- Images validated for MIME type and size and saved into `uploads/products/`. Served statically by FastAPI at `/uploads`.
-
-Error handling
-- Services raise `HTTPException` for client errors (400/401/403/404). Security decode returns None for invalid tokens; dependencies convert to 401.
-
-## **Frontend — Structure & Key Files**
-- **Axios instance:** [frontend/src/api/axios.js](frontend/src/api/axios.js) — reads `VITE_API_URL` and attaches `Authorization` header from `localStorage.token`.
-- **Auth context:** [frontend/src/context/AuthContext.jsx](frontend/src/context/AuthContext.jsx) — provides `login(token)`, `logout()`, and `isAuthenticated` state.
-- **Pages:** [frontend/src/pages](frontend/src/pages) — `Home`, `Products`, `ProductDetail`, `Cart`, `Orders`, `Login`, `Register`.
-- **Components:** [frontend/src/components](frontend/src/components) — `ProductCard`, `Navbar`, `ProtectedRoute`.
-- **Services (frontend API wrappers):** [frontend/src/services](frontend/src/services) — `authService.js`, `productService.js`, `categoryService.js`, `cartService.js`, `orderService.js`.
-
-## **Frontend — Flows and Edge Cases (detailed)**
-
-Auth lifecycle
-- On load, `AuthContext` reads `localStorage.token`. Axios includes token in requests automatically.
-- Token expiry (60 min) is not handled globally; expired tokens will cause 401 responses from the backend. Current UI shows alerts for failures, but does not auto-logout.
-
-Product browsing
-- Products page calls `getProducts()` → displays cards. Each card links to `ProductDetail`.
-- Product detail calls `getProductById()`. If product missing or inactive backend returns 404 — page shows "Product not found".
-- Adding to cart calls `POST /cart/add`. Possible failures:
-  - 401 Unauthorized (not logged in / expired token).
-  - 404 Product not found (deleted meanwhile).
-  - 400 Insufficient stock.
-
-Cart & Checkout
-- `Cart` page calls `GET /cart`. Empty cart returns `{items:[], total_price:0}`.
-- Checkout posts to `/orders/checkout`. Possible failures:
-  - 400 "Cart is empty" if user has no items.
-  - 400/404 if any product is out-of-stock or removed between viewing cart and checkout.
-  - 401 Unauthorized for missing/expired token.
-- On success the frontend alerts and navigates to `/orders`.
-
-Orders
-- `GET /orders/my-orders` lists a user's orders. If empty, UI shows "No orders found." Admin-only endpoints are not surfaced in UI.
-
-Navigation & protection
-- `ProtectedRoute` redirects unauthenticated users to `/login`. However some API calls may still be performed by unauthenticated pages; backend enforces auth anyway.
-
-UX & developer notes
-- Errors are surfaced as `alert()` in several places. Consider replacing with a consistent toast or inline error component.
-- Add a global Axios response interceptor to handle `401` by calling `logout()` and redirecting to `/login`.
-
-## **Run & dev notes**
-- Backend env file (create `.env`) must include:
-  - `MONGODB_URL` — MongoDB connection string
-  - `DATABASE_NAME` — database name
-  - `JWT_SECRET_KEY` — secret for signing JWTs
-  - `JWT_ALGORITHM` — JWT signature algorithm (e.g. `HS256`)
-  - `ACCESS_TOKEN_EXPIRE_MINUTES` — token expiration window in minutes
-- Frontend env file (create `frontend/.env` or root `.env`) should include:
-  - `VITE_API_URL=http://localhost:8000/api/v1`
-- Run backend (recommended):
-
-```powershell
-# from repo root
-cd backend
-# create venv, install, then run uvicorn
-# example (adjust to your environment):
-python -m venv .venv
-.\\.venv\\Scripts\\Activate.ps1
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-
-- Run frontend (recommended):
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-- Run the full stack with Docker Compose:
-
-```bash
-docker compose up --build
-```
-
-## **Important files quick links**
-- App entry: [backend/app/main.py](backend/app/main.py)
-- Auth service & routes: [backend/app/services/auth_service.py](backend/app/services/auth_service.py), [backend/app/api/auth_routes.py](backend/app/api/auth_routes.py)
-- Product service & routes: [backend/app/services/product_service.py](backend/app/services/product_service.py), [backend/app/api/product_routes.py](backend/app/api/product_routes.py)
-- Cart service & routes: [backend/app/services/cart_service.py](backend/app/services/cart_service.py), [backend/app/api/cart_routes.py](backend/app/api/cart_routes.py)
-- Order service & routes: [backend/app/services/order_service.py](backend/app/services/order_service.py), [backend/app/api/order_routes.py](backend/app/api/order_routes.py)
-- DB & models: [backend/app/db/database.py](backend/app/db/database.py), [backend/app/models](backend/app/models)
-- Upload util: [backend/app/utils/file_upload.py](backend/app/utils/file_upload.py)
-- Frontend Axios: [frontend/src/api/axios.js](frontend/src/api/axios.js)
-- Frontend Auth context: [frontend/src/context/AuthContext.jsx](frontend/src/context/AuthContext.jsx)
-- Frontend main pages: [frontend/src/pages](frontend/src/pages)
-
-## **Recommended improvements**
-- Add global Axios response interceptor to handle `401` and auto-logout.
-- Improve frontend error handling (replace alerts with a toast system).
-- Add admin UI for product/category/order management to match backend capabilities.
-- Sanitize and validate file upload/output paths and ensure upload directory exists at startup.
+This document outlines the system architecture, file structure, database schemes, core business logic, and UI/UX flows for the IntelliCart full-stack application.
 
 ---
-If you'd like, I can add the global Axios `401` handler patch now and run quick local checks. Which next step do you want?
+
+## 1. Overview
+- **Purpose:** Premium e-commerce application demo with a FastAPI backend and a React + Vite frontend.
+- **Backend Base URL:** `http://localhost:8000/api/v1`
+- **Frontend Dev URL:** `http://localhost:5173`
+- **Containerized Dev:** `docker compose up --build` launches the application and a MongoDB database.
+
+---
+
+## 2. Directory Structure & Key Files
+
+### Backend Structure
+- **Entrypoint:** [main.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/main.py) — Registers app lifespan, CORS configurations, mounts `/uploads` directory, and defines routers.
+- **Config:** [config.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/core/config.py) — Handles `.env` variables, including SMTP settings and JWT secrets.
+- **Security:** [security.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/core/security.py) — Utilities for password hashing and JWT token creation/verification.
+- **Database Connection & Migrations:** [database.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/db/database.py) — Motor + Beanie initialization. Seeds default admin user and backfills product databases (MRP, ratings, reviews, seller details).
+- **Models (ODM):** Located in `app/models/`
+  - [user_model.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/models/user_model.py) — Schema for profiles, roles, and saved shipping addresses.
+  - [product_model.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/models/product_model.py) — Fields for price, MRP, seller info, stock, and average rating aggregates.
+  - [otp_model.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/models/otp_model.py) — Store for temporary OTP hashes and expiry timers.
+  - [review_model.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/models/review_model.py) — User reviews, comments, and star ratings.
+  - [order_model.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/models/order_model.py), [cart_model.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/models/cart_model.py) — Collections for carts and transactional orders.
+- **Services (Business Logic):** Located in `app/services/`
+  - [auth_service.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/services/auth_service.py) — Handles login validation.
+  - [otp_service.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/services/otp_service.py) — Sends and verifies OTPs for registration.
+  - [password_reset_service.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/services/password_reset_service.py) — Manages forgot/reset password flows.
+  - [user_service.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/services/user_service.py) — Address and profile CRUD.
+  - [product_service.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/services/product_service.py) — Catalog listings, image uploads, cascades, reviews, and delivery estimations.
+  - [cart_service.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/services/cart_service.py) — Increments quantities and checks item stock.
+  - [order_service.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/services/order_service.py) — Checkout processes, stock validation/rollback, cancellations, and status logs.
+- **Email Utils:** [email.py](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/backend/app/utils/email.py) — Standard library for sending styled HTML emails (Verification OTPs, password reset codes, invoice receipts, and logistics shipping alerts).
+
+### Frontend Structure
+- **Axios Client:** [axios.js](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/api/axios.js) — Injects authentication token headers and interceptors to broadcast `auth:token-expired` events on 401 errors.
+- **Context API:** [AuthContext.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/context/AuthContext.jsx) — Listens for Axios token expiry events to logout expired users and toast alerts.
+- **Route Protectors:** 
+  - [ProtectedRoute.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/components/ProtectedRoute.jsx) — Demands standard user authentication.
+  - [AdminRoute.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/components/AdminRoute.jsx) — Limits access to role="admin" accounts.
+  - [NonAdminRoute.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/components/NonAdminRoute.jsx) — Redirects logged-in admins to `/admin` to prevent cart/checkout conflicts.
+- **Custom UI Inputs:** [OTPInput.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/components/ui/OTPInput.jsx) — Multi-box UI input block for digit-based codes.
+- **Pages & Control Panels:** Located in `frontend/src/pages/`
+  - [Home.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/pages/Home.jsx) — Marketing slider, catalog searches, and product features.
+  - [Products.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/pages/Products.jsx) — Product grid with paginated filtering options.
+  - [ProductDetail.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/pages/ProductDetail.jsx) — Multi-image product detail view, similar items, and product reviews.
+  - [ForgotPassword.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/pages/ForgotPassword.jsx) — Verification UI for password recovery.
+  - [Profile.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/pages/Profile.jsx) — Profile details, password resets, and user address CRUD.
+  - [Checkout.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/pages/Checkout.jsx) — Address selectors, discount coupons, order summary, and dummy payment forms.
+  - [AdminDashboard.jsx](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/src/pages/AdminDashboard.jsx) — Complete administrative interface.
+
+---
+
+## 3. Core Business Logic & API Flows
+
+### A. Authentication & OTP Verification
+```mermaid
+sequenceDiagram
+    participant User
+    participant App as React Frontend
+    participant API as FastAPI Backend
+    participant Mail as SMTP Service
+
+    User->>App: Register Form
+    App->>API: POST /auth/register-otp (email, name, password)
+    API->>Mail: Send 6-Digit OTP Email
+    API-->>App: Return 200 OK (OTP Sent)
+    User->>App: Input 6-Digit OTP Code
+    App->>API: POST /auth/verify-otp (email, otp, credentials)
+    API->>API: Verify OTP Hash, Create Verified User
+    API-->>App: Return JWT Token
+```
+
+### B. Forgot & Reset Password
+1. User enters their email on `/forgot-password`.
+2. Backend validates that the email exists, hashes a new 6-digit random code in the `OTP` collection, and sends an email.
+3. User enters the OTP and their new password.
+4. Backend verifies the code and updates the user's password.
+
+### C. Checkout & Programmatic Rollback
+Checkout operations are transactional at the service level:
+- Checks if the user's cart is empty.
+- Resolves the target shipping address (accepts a submitted ID, a custom address schema, or falls back to the user's default).
+- Loops through cart items and attempts to reduce product stock atomically in the database (`$gte` query operations).
+- **Programmatic Rollback:** If any item fails inventory checks (e.g. stock goes below required quantity), the service catches the exception and restores stock for all items successfully deducted up to that point, raising a `400 Bad Request`.
+- Once completed, the order is created, the cart is cleared, and an email invoice is sent.
+
+### D. Interactive Delivery Estimation
+The product details view contains an interactive delivery estimation tool:
+- User submits a postal code.
+- Backend resolves the product seller's postal code.
+- Distance logic:
+  - Identical code: Same day (1-day).
+  - Matches first 3 digits: 1-2 days.
+  - Matches first character (region): 2-3 days.
+  - No match: 4-5 days.
+- A formatted string and estimated dates are returned for the UI to display.
+
+### E. Product Reviews & Aggregates
+- Authenticated users can write or update reviews (rating 1 to 5, comment, title).
+- **Verified Purchase Verification:** Review submission checks the user's order history. A review is marked as `verified_purchase: true` if the user has a non-cancelled order containing the product that has either been paid (`payment_status == "paid"`) or is an approved Cash on Delivery (COD) order.
+- **Verification Syncing:** Changes in order status (such as customer or admin cancellations) automatically trigger a background task (`reverify_user_review_for_product`) to synchronize and adjust review verification flags dynamically.
+- When a review is created, updated, or deleted, the backend recalculates and saves the product's aggregate fields:
+  - `reviews_count` (total review count)
+  - `rating` (mathematical average of reviews)
+
+### F. Administrative Actions
+The Admin Dashboard contains five main management sections:
+1. **User Role Management:** Lists users and allows toggling administrative privileges.
+2. **Category CRUD:** Standard controls to create, update, or delete categories.
+3. **Product CRUD:** Controls to create products, edit descriptions, adjust inventory levels, and upload images.
+4. **Order Management:** View all customer orders. Allows updating order status:
+  - `pending` -> `processing` -> `shipped` -> `delivered`.
+  - When status is updated to `cancelled`, backend triggers an automatic restore of product inventory quantities.
+  - Status updates to `shipped`, `delivered`, and `cancelled` automatically dispatch logistics updates to customer email accounts.
+5. **Analytics Dashboard:** Visualizes overall storefront transactional and execution stats using interactive charts powered by Recharts (Area, Bar, and Doughnut charts) on the frontend:
+  - Displays daily sales and order trends over the trailing 30 days.
+  - Groups sales distribution and units sold by category.
+  - Displays top-selling products by quantity.
+  - Details order funnel states (pending, processing, shipped, delivered, cancelled) matching the backend aggregates served under the `GET /api/v1/orders/analytics` route.
+
+---
+
+## 4. Database Schema & Migration Details
+
+### Database Migrations
+At startup, `connect_to_mongo` runs a series of backfill migrations:
+- **Default Administrator Seed:** Creates `admin@intellicart.com` (password: `admin123`) if no admin user is present.
+- **Product Document Backfill:** For any catalog items missing new visual structure variables, the migration backfills:
+  - `mrp` (Calculated at `1.25 * price`).
+  - `discount` (Percentage calculation based on price vs MRP).
+  - `rating` & `reviews_count` (Provides seeded defaults).
+  - `seller_name` ("IntelliCart Central Hub") and `seller_postal_code` ("400001").
+- **Mock Review Cleanup & Recalculation:** Deletes all legacy mock reviews (where `user_id` matches `^mock_`) and recalculates product ratings and review count statistics for all items in the database at startup.
+
+---
+
+## 5. Deployment Guide
+
+This full-stack application is optimized for modern cloud deployments. Below is a breakdown of the production configuration architecture and PaaS target platforms:
+
+### A. Routing & Single-Page Application (SPA) Support
+- **Client Routing Fallback:** SPA architectures using client-side routing libraries (like React Router) require the web server to serve `index.html` on all unmatched route requests so the frontend app can handle routing internally.
+- **Vercel Rewrite Rules:** The frontend features a [vercel.json](file:///c:/Users/harir/OneDrive/Desktop/IntelliCart/frontend/vercel.json) file defining a wildcard rewrite rule:
+  ```json
+  {
+    "rewrites": [
+      { "source": "/(.*)", "destination": "/index.html" }
+    ]
+  }
+  ```
+  This ensures refreshing paths like `/products` or `/admin` does not trigger 404 errors.
+
+### B. Dynamic Environment & Port Bindings
+- **FastAPI / Uvicorn Port Bindings:** Railway and Render assign variable routing ports using the `PORT` environment variable. The Dockerfiles for both the backend and AI services use a dynamic binding command:
+  ```dockerfile
+  CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+  ```
+  This allows the container to dynamically listen on the assigned host port while retaining port fallback functionality for local testing.
+
+### C. CORS Settings for Distributed Environments
+- **Configurable Origins:** Since the frontend and services reside on different host domains (Vercel CDN vs Railway/Render servers), CORS controls are active.
+- **Backend Whitelist:** The backend includes a configurable list of allowed origins via the `ALLOWED_ORIGINS` environment variable. At startup, the CORS middleware parses this comma-separated list to authenticate cross-domain fetch requests.
+
+### D. Production Environment Variables Checklist
+Make sure to set the following variables on their respective hosting dashboards:
+1. **Frontend (Vercel):**
+   - `VITE_API_URL` (Points to backend deployed API root endpoint `/api/v1`)
+   - `VITE_AI_API_URL` (Points to AI service deployed API root endpoint `/api/v1`)
+2. **Backend (Railway/Render):**
+   - `MONGODB_URL` (Database connection URL)
+   - `DATABASE_NAME` (e.g., `intellicart`)
+   - `JWT_SECRET_KEY` (Strong secret key for user sessions)
+   - `ALLOWED_ORIGINS` (Comma-separated list of allowed browser domains, e.g., `https://intellicart-app.vercel.app`)
+   - SMTP credentials (`SMTP_SERVER`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM_EMAIL`, `SMTP_FROM_NAME`)
+3. **AI Service (Railway/Render):**
+   - `MONGO_URI` (Database connection URL)
+   - `DATABASE_NAME` (e.g., `intellicart` - must match the backend database name)
+   - `JWT_SECRET` (Must match the backend's `JWT_SECRET_KEY` to decode authorization headers)
+   - `GROQ_API_KEY` (API key to power chatbot services)
+
+---
+
+## 6. Recommended Future Enhancements
+- **Message Queues:** Offload SMTP mail transmissions from background asyncio tasks to a dedicated message broker (e.g. Celery + Redis).
+- **Payment Processing:** Replace dummy credit card submission forms with standard integrations (Stripe, Razorpay API integrations).
+- **AI-Powered Recommendations:** Implement personalized product recommendations using the reserved `ai-service/` directory.
+

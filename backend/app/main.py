@@ -1,10 +1,10 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.test_routes import router as test_router
 from app.api.auth_routes import router as auth_router
 from app.api.user_routes import router as user_router
 from app.api.product_routes import router as product_router
@@ -19,6 +19,9 @@ from app.db.database import connect_to_mongo, close_mongo_connection
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Starting IntelliCart API...")
+
+    # Ensure uploads folder exists so mounting static directories and uploads do not fail
+    os.makedirs("uploads/products", exist_ok=True)
 
     await connect_to_mongo()
 
@@ -35,11 +38,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Parse CORS allowed origins from configuration
+origins = [origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173"
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -85,12 +89,6 @@ app.include_router(
     order_router,
     prefix="/api/v1/orders",
     tags=["Orders"]
-)
-
-app.include_router(
-    test_router,
-    prefix="/api/v1/test",
-    tags=["Test"]
 )
 
 @app.get("/")

@@ -1,14 +1,18 @@
+# pyrefly: ignore [missing-import]
 from fastapi import APIRouter, Depends, Query
+# pyrefly: ignore [missing-import]
 from fastapi import File, UploadFile
 
 from app.dependencies.auth_dependencies import (
-    admin_required
+    admin_required,
+    get_current_user
 )
 from app.models.user_model import User
 from app.schemas.product_schema import (
     ProductCreate,
     ProductUpdate
 )
+from app.schemas.review_schema import ReviewCreate
 from app.services.product_service import (
     ProductService
 )
@@ -37,7 +41,10 @@ async def get_products(
     category: str | None = None,
     search: str | None = None,
     min_price: float | None = None,
-    max_price: float | None = None
+    max_price: float | None = None,
+    min_rating: float | None = None,
+    in_stock: bool | None = None,
+    sort_by: str | None = None
 ):
 
     return await (
@@ -47,7 +54,10 @@ async def get_products(
             category=category,
             search=search,
             min_price=min_price,
-            max_price=max_price
+            max_price=max_price,
+            min_rating=min_rating,
+            in_stock=in_stock,
+            sort_by=sort_by
         )
     )
 
@@ -92,8 +102,11 @@ async def update_product(
 @router.delete("/{product_id}")
 async def delete_product(
     product_id: str,
+    hard_delete: bool = Query(False),
     current_user: User = Depends(admin_required)
 ):
+    if hard_delete:
+        return await ProductService.hard_delete_product(product_id)
 
     return await (
         ProductService.delete_product(
@@ -113,4 +126,33 @@ async def upload_product_image(
             product_id,
             file
         )
+    )
+
+@router.get("/{product_id}/delivery-estimate")
+async def get_delivery_estimate(
+    product_id: str,
+    postal_code: str
+):
+    return await ProductService.calculate_delivery_estimate(product_id, postal_code)
+
+
+@router.get("/{product_id}/reviews")
+async def get_product_reviews(
+    product_id: str
+):
+    return await ProductService.get_product_reviews(product_id)
+
+
+@router.post("/{product_id}/reviews")
+async def submit_product_review(
+    product_id: str,
+    review_data: ReviewCreate,
+    current_user: User = Depends(get_current_user)
+):
+    user_name = getattr(current_user, "full_name", None) or current_user.email.split("@")[0]
+    return await ProductService.submit_product_review(
+        product_id=product_id,
+        user_id=str(current_user.id),
+        user_name=user_name,
+        data=review_data
     )

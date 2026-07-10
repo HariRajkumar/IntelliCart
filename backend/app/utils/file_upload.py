@@ -4,11 +4,11 @@ import uuid
 from fastapi import HTTPException, UploadFile, status
 
 
-ALLOWED_IMAGE_TYPES = [
-    "image/jpeg",
-    "image/png",
-    "image/webp"
-]
+ALLOWED_IMAGE_TYPES_MAP = {
+    "image/jpeg": ["jpg", "jpeg"],
+    "image/png": ["png"],
+    "image/webp": ["webp"]
+}
 
 MAX_FILE_SIZE = 5 * 1024 * 1024
 
@@ -17,7 +17,7 @@ async def save_product_image(
     file: UploadFile
 ):
 
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
+    if file.content_type not in ALLOWED_IMAGE_TYPES_MAP:
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -33,7 +33,14 @@ async def save_product_image(
             detail="File too large"
         )
 
-    file_extension = file.filename.split(".")[-1]
+    # Validate file extension strictly against allowed content type extensions
+    file_extension = file.filename.split(".")[-1].lower() if "." in file.filename else ""
+    if file_extension not in ALLOWED_IMAGE_TYPES_MAP[file.content_type]:
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File extension does not match image content type"
+        )
 
     unique_filename = (
         f"{uuid.uuid4()}.{file_extension}"

@@ -52,3 +52,8 @@ export const removeFromCart =
 
     return response.data;
   };
+
+export const clearCart = async () => {
+  const response = await api.delete("/cart/clear");
+  return response.data;
+};

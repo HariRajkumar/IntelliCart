@@ -78,11 +78,18 @@ class AuthService:
                 detail="Invalid credentials"
             )
 
+        if not user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Please verify your email address first"
+            )
+
         token = create_access_token(
             {
                 "sub": str(user.id),
                 "email": user.email,
-                "role": user.role
+                "role": user.role,
+                "full_name": user.full_name
             }
         )
 
