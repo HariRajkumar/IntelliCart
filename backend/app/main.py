@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.test_routes import router as test_router
 from app.api.auth_routes import router as auth_router
 from app.api.user_routes import router as user_router
 from app.api.product_routes import router as product_router
@@ -89,12 +88,6 @@ app.include_router(
     order_router,
     prefix="/api/v1/orders",
     tags=["Orders"]
-)
-
-app.include_router(
-    test_router,
-    prefix="/api/v1/test",
-    tags=["Test"]
 )
 
 @app.get("/")

@@ -41,12 +41,15 @@ class RoleAgent:
             }
         except Exception as e:
             logger.error(f"Error in RoleAgent: {e}")
-            # Fallback check: admins are always authorized, customers get restricted on keywords like delete/create
             is_authorized = (user_role == "admin")
             if not is_authorized:
-                # Basic safety fallback check on keywords if LLM parsing errors out
+                # Basic safety fallback check on admin keywords if LLM parsing errors out
                 lower_prompt = user_prompt.lower()
-                forbidden = ["delete", "drop", "remove", "update user", "make admin", "grant admin"]
+                forbidden = [
+                    "delete product", "remove product", "delete category", "remove category",
+                    "delete user", "remove user", "drop collection", "drop database",
+                    "make admin", "grant admin", "change role", "update user role"
+                ]
                 is_authorized = not any(word in lower_prompt for word in forbidden)
             
             return {

@@ -37,6 +37,9 @@ class ChatbotService:
             await MongoChatHistory.add_message(user_id, "assistant", fallback)
             return fallback
 
+        # Save user message to chat history immediately
+        await MongoChatHistory.add_message(user_id, "user", prompt)
+
         # 3. MongoDB Query Generation Agent
         query_spec = await self.query_agent.generate(user_id, user_role, prompt)
         logger.info(f"Generated query spec: {query_spec}")
@@ -45,6 +48,7 @@ class ChatbotService:
         query_results = []
         if query_spec.get("operation") != "none":
             try:
+                query_spec["user_id"] = user_id
                 query_results = await QueryExecutor.execute(query_spec)
                 logger.info(f"Executed query. Found {len(query_results)} results.")
             except Exception as e:
@@ -52,9 +56,11 @@ class ChatbotService:
                 query_results = [{"error": f"Database execution error: {str(e)}"}]
 
         # 5. Response Formatting Agent
-        # Retrieve recent history for formatting context
-        history_list = await MongoChatHistory.get_history(user_id, limit=10)
-        history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in history_list])
+        # Retrieve recent history context (limit 11 since we just appended the current message)
+        history_list = await MongoChatHistory.get_history(user_id, limit=11)
+        # Exclude the current user message at the end of the history array to avoid duplicate prompt context
+        past_history = history_list[:-1] if len(history_list) > 0 else []
+        history_str = "\n".join([f"{msg['role']}: {msg['content']}" for msg in past_history])
 
         formatted_res = await self.formatter_agent.format(
             user_prompt=prompt,
@@ -63,8 +69,7 @@ class ChatbotService:
             chat_history=history_str
         )
 
-        # 6. Save history
-        await MongoChatHistory.add_message(user_id, "user", prompt)
+        # 6. Save assistant response to history
         await MongoChatHistory.add_message(user_id, "assistant", formatted_res)
 
         return formatted_res
